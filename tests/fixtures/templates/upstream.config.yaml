@@ -1,0 +1,4 @@
+version: 1
+bypass_for:
+  - fix/
+docs_path: docs/upstream/

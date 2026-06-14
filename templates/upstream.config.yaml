@@ -1,0 +1,49 @@
+version: 1
+
+# Branch prefixes that bypass upstream checks (bugs, hotfixes, chores)
+bypass_for:
+  - fix/
+  - hotfix/
+  - chore/
+  - docs/
+
+# Required PRD fields — upstream-guard blocks if any are missing
+prd_required_fields:
+  - problem_statement
+  - success_metrics
+  - out_of_scope
+
+# Architectural triggers — any of these in the PRD requires an ADR
+adr_triggers:
+  - new_external_dependency
+  - database_schema_change
+  - api_breaking_change
+  - infrastructure_change
+  - auth_change
+
+# Where PRDs, ADRs, and skip log are stored
+docs_path: docs/upstream/
+
+# 'local': full PRD/ADR content stored in this repo
+# 'link': stub file with URL + metadata; actual doc lives in Confluence/Google Docs/etc.
+docs_storage: local
+
+# Integrations — OAuth credentials per provider (set by platform engineer, commit to repo)
+# integrations:
+#   google_docs:
+#     client_id: "xxx.apps.googleusercontent.com"
+#     allowed_domain: "yourcompany.com"   # only accounts @yourcompany.com can authenticate
+#     # Create credentials at: https://console.cloud.google.com/apis/credentials
+#     # Enable: Google Drive API → OAuth 2.0 Client ID → Desktop app
+#     # (Desktop app type allows localhost automatically — no redirect URI config needed)
+#   confluence:
+#     client_id: "yyy"
+#     allowed_domain: "yourcompany.atlassian.net"
+#     # Create credentials at: https://developer.atlassian.com/console/myapps/
+#     # Enable: OAuth 2.0 (3LO) app, add scopes: read:confluence-content.all, write:confluence-content, offline_access
+
+# Link enforcement policy (optional — both fields are opt-in)
+# link_policy:
+#   allowed_providers:        # if set, only these provider URLs accepted in link mode
+#     - google-docs
+#   require_validation: true  # if true, unvalidated links block progress (no silent fallback)

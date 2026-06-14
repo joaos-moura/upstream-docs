@@ -1,0 +1,112 @@
+import { existsSync, readdirSync, readFileSync } from 'fs'
+import { join, basename } from 'path'
+import { execSync } from 'child_process'
+import chalk from 'chalk'
+import { readConfig } from '../lib/config.js'
+
+function getCurrentBranch() {
+  return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8', stdio: 'pipe' }).trim()
+}
+
+function getSlug(branch) {
+  const idx = branch.indexOf('/')
+  return idx === -1 ? branch : branch.slice(idx + 1)
+}
+
+function scanDocs(docsPath, branch, slug) {
+  const files = readdirSync(docsPath).filter(f => f.endsWith('.md'))
+  return files.filter(f => {
+    if (basename(f).toLowerCase().includes(slug.toLowerCase())) return true
+    try { return readFileSync(join(docsPath, f), 'utf8').includes(branch) } catch { return false }
+  })
+}
+
+function classifyFile(filePath) {
+  const name = basename(filePath).toUpperCase()
+  if (name.includes('PRD')) return 'prd'
+  if (name.includes('ADR')) return 'adr'
+  try {
+    const first = readFileSync(filePath, 'utf8').split('\n').find(l => l.startsWith('#')) ?? ''
+    if (first.toUpperCase().includes('PRD')) return 'prd'
+    if (first.toUpperCase().includes('ADR')) return 'adr'
+  } catch {}
+  return null
+}
+
+export function statusCommand(cwd = process.cwd()) {
+  let branch
+  try {
+    branch = getCurrentBranch()
+  } catch {
+    console.error(chalk.red('upstream status: not a git repository'))
+    process.exit(1)
+  }
+
+  if (branch === 'HEAD') {
+    console.error(chalk.red('upstream status: repository is in detached HEAD state — check out a branch first'))
+    process.exit(1)
+  }
+
+  const configPath = join(cwd, 'upstream.config.yaml')
+  if (!existsSync(configPath)) {
+    console.error(chalk.red(`upstream status: no upstream.config.yaml found in ${cwd}`))
+    process.exit(1)
+  }
+
+  let config
+  try {
+    config = readConfig(configPath)
+  } catch (err) {
+    console.error(chalk.red(`upstream status: invalid upstream.config.yaml — ${err.message}`))
+    process.exit(1)
+  }
+  const docsPath = join(cwd, config.docs_path)
+
+  console.log(chalk.bold('upstream status\n'))
+  console.log(`Branch:  ${branch}`)
+
+  const bypassPrefix = config.bypass_for.find(p => branch.startsWith(p))
+  if (bypassPrefix) {
+    console.log(`Type:    bypass — upstream skipped for ${bypassPrefix} branches`)
+    return
+  }
+
+  console.log('Type:    feature\n')
+
+  if (!existsSync(docsPath)) {
+    console.error(chalk.red(`upstream status: docs path not found: ${config.docs_path}`))
+    process.exit(1)
+  }
+
+  const slug = getSlug(branch)
+  let matched
+  try {
+    matched = scanDocs(docsPath, branch, slug)
+  } catch (err) {
+    console.error(chalk.red(`upstream status: cannot read docs directory — ${err.message}`))
+    process.exit(1)
+  }
+
+  let prdFile = null
+  let adrFile = null
+  for (const f of matched) {
+    const type = classifyFile(join(docsPath, f))
+    if (type === 'prd' && !prdFile) prdFile = f
+    if (type === 'adr' && !adrFile) adrFile = f
+  }
+
+  if (prdFile) {
+    console.log(`PRD  ${chalk.green('✅')}  ${join(config.docs_path, prdFile)}`)
+  } else {
+    console.log(`PRD  ${chalk.red('❌')}  not found in ${config.docs_path}`)
+  }
+
+  if (!prdFile) {
+    console.log('ADR  —   (check PRD first)')
+    process.exit(1)
+  } else if (adrFile) {
+    console.log(`ADR  ${chalk.green('✅')}  ${join(config.docs_path, adrFile)}`)
+  } else {
+    console.log(`ADR  ${chalk.yellow('—')}   none in ${config.docs_path}`)
+  }
+}
