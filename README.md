@@ -14,7 +14,7 @@ This keeps your team's reasoning in the repository, not scattered across memory.
 
 ## How it works
 
-After `upstream init`, the first prompt on a feature branch in each Claude Code session gets a context injection:
+After setup (via `upstream init` or `claude plugin install upstream`), the first prompt on a feature branch in each Claude Code session gets a context injection:
 
 ```text
 UPSTREAM: feature detected without PRD. Invoke upstream-guard before continuing.
@@ -37,6 +37,16 @@ Bypass branches (`fix/`, `hotfix/`, `chore/`, `docs/`) are skipped automatically
 
 ## Quick start
 
+### Option A — Claude Code plugin (personal install)
+
+```bash
+claude plugin install upstream
+```
+
+Skills and hook are loaded automatically. Add `upstream.config.yaml` to any repo you want guarded (see [Configuration](#configuration)).
+
+### Option B — npm + `upstream init` (team setup)
+
 ```bash
 # Install globally
 npm install -g upstream-docs
@@ -52,6 +62,8 @@ git push
 `upstream init` runs an interactive wizard that configures `upstream.config.yaml`, scaffolds `.claude/`, optionally sets up a CODEOWNERS guardian, and automatically updates `.gitignore` to exclude `.env`/`.env.local`/`.env.test`.
 
 Your team gets the plugin on their next `git pull`. No global install required on their machines — Claude Code picks up `.claude/` automatically.
+
+> **Which to choose?** Use the plugin install for personal use across your own projects. Use `upstream init` when your team should all be gated — the config and hook live in the repo and are enforced for everyone.
 
 ---
 
@@ -242,6 +254,8 @@ If a PRD or ADR genuinely isn't needed, developers can skip with a justification
 ---
 
 ## What gets committed to your repo
+
+> This applies to the `upstream init` (team) setup. With `claude plugin install`, skills and the hook live in the Claude Code plugin directory and are not committed to your repo — only `upstream.config.yaml` and your docs need to be tracked.
 
 ```text
 .claude/
