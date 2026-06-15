@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/upstream-check.sh\"",
+            "timeout": 10,
+            "statusMessage": "Checking upstream docs..."
+          }
+        ]
+      }
+    ]
+  }
+}

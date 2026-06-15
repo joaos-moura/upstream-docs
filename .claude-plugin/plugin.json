@@ -1,0 +1,19 @@
+{
+  "name": "upstream",
+  "version": "0.1.0",
+  "description": "Enforce PRD and ADR documentation before feature development begins",
+  "author": {
+    "name": "João S. Moura",
+    "email": "joaos.moura@outlook.com"
+  },
+  "homepage": "https://github.com/joaos-moura/upstream-docs",
+  "repository": "https://github.com/joaos-moura/upstream-docs",
+  "license": "MIT",
+  "keywords": [
+    "prd",
+    "adr",
+    "documentation",
+    "workflow",
+    "guard"
+  ]
+}

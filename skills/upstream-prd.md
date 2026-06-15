@@ -6,7 +6,6 @@ description: Creates a PRD via import, interactive interview, auto-draft, or lin
 You are creating a Product Requirements Document (PRD).
 
 **Setup before any mode:**
-
 1. Read `upstream.config.yaml` → get `docs_path` (default: `docs/upstream/`) and `prd_required_fields`.
 2. Read template from `${CLAUDE_PLUGIN_ROOT}/templates/PRD.md`.
 3. Get current branch: `git rev-parse --abbrev-ref HEAD`
@@ -21,7 +20,6 @@ You will be invoked with a mode: `import`, `interview`, `auto-draft`, or `link`.
 Say: "Great. Paste your existing document, or describe it in as much detail as you have. It doesn't need to be formatted."
 
 Wait for their input. Then:
-
 1. Map their content to the PRD template fields.
 2. For each field in `prd_required_fields` not covered, ask specifically: "Your document doesn't cover **[field_name]**. Can you tell me: [natural-language version of the field]?"
 3. Assemble the complete PRD from the template.
@@ -65,31 +63,13 @@ Assemble the PRD from the template with answers filled in. Show it: "Here's the 
 
 ## Mode: link
 
-Ask: "What's the URL for your PRD? (Notion, Confluence, Google Docs, or any other tool)"
+Ask: "What's the URL for your PRD? (Notion, Confluence, or any other tool)"
 
-Wait for the URL. Then:
-
-1. Call the `validate_link` MCP tool with the URL.
-2. Read `link_policy` from `upstream.config.yaml`.
-
-**Policy checks (run before saving):**
-
-If `link_policy.allowed_providers` is set AND the result `provider` is not in the list:
-> Block: "This org only accepts links from: [allowed_providers]. Please provide a URL from one of those tools."
-
-If `link_policy.require_validation` is true AND `result.error` is not null:
-> Block: "This org requires validated links. [result.error]. Please resolve before continuing."
-> (If error is "not authenticated", tell them: "Run `upstream auth google-docs` and try again.")
-
-**After policy checks pass:**
-
-If `result.title` is available: use it as the document title (do not ask the user).
-If `result.last_edited` is available: use it as the date field.
-If `result.title` is null: ask "What's the title of this document?" (use branch slug as fallback if skipped).
+Wait for the URL. Then ask: "What's the title of this document?" (use branch slug as fallback if they skip).
 
 Read `${CLAUDE_PLUGIN_ROOT}/templates/PRD-link.md` and fill in: title, URL, branch, date.
 
-Save the stub (see Saving). Do not ask further questions after title is resolved.
+Save the stub (see Saving). Do not ask further questions.
 
 ---
 
@@ -103,4 +83,3 @@ Save to: `<docs_path>/PRD-<slug>.md`
 After saving, say: "PRD saved to `<docs_path>/PRD-<slug>.md`."
 
 If invoked from upstream-guard, add: "Returning to upstream-guard to check ADR requirements."
-
