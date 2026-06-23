@@ -134,6 +134,18 @@ export async function initCommand(options) {
       ensureClientSecretEnv(target, 'UPSTREAM_CONFLUENCE_CLIENT_SECRET', 'Confluence')
     }
 
+    if (answers.align) {
+      const ANTHROPIC_KEY = 'ANTHROPIC_API_KEY'
+      const ANTHROPIC_EXAMPLE_COMMENT = `\n# upstream align: Anthropic API key for LLM-based alignment analysis\n${ANTHROPIC_KEY}=your-anthropic-api-key\n`
+
+      const examplePath = join(target, '.env.example')
+      const exampleContent = existsSync(examplePath) ? readFileSync(examplePath, 'utf8') : ''
+      if (!exampleContent.includes(ANTHROPIC_KEY)) {
+        appendFileSync(examplePath, ANTHROPIC_EXAMPLE_COMMENT)
+        console.log(chalk.green(`✓ ${ANTHROPIC_KEY} added to .env.example`))
+      }
+    }
+
     let shouldValidate = false
     if (answers.providers?.length > 0 && process.stdin.isTTY) {
       shouldValidate = await confirm({

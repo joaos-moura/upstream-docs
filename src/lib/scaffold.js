@@ -10,6 +10,7 @@ const FILE_MAP = [
   ['skills/upstream-guard.md',   '.claude/plugins/upstream/skills/upstream-guard.md'],
   ['skills/upstream-prd.md',     '.claude/plugins/upstream/skills/upstream-prd.md'],
   ['skills/upstream-adr.md',     '.claude/plugins/upstream/skills/upstream-adr.md'],
+  ['skills/upstream-align.md',   '.claude/plugins/upstream/skills/upstream-align.md'],
   ['templates/PRD.md',           '.claude/plugins/upstream/templates/PRD.md'],
   ['templates/ADR.md',           '.claude/plugins/upstream/templates/ADR.md'],
 ]
@@ -30,6 +31,13 @@ export function generateConfig(answers) {
     adr_triggers: answers.adr_triggers,
     docs_path: answers.docs_path ?? 'docs/upstream/',
     docs_storage: answers.docs_storage,
+  }
+  if (answers.align) {
+    config.align = {
+      on_violation: answers.align.on_violation ?? 'warn',
+      base_branch: answers.align.base_branch ?? 'auto',
+      post_pr_comment: true,
+    }
   }
   if (answers.providers?.length) {
     config.integrations = {}
@@ -83,6 +91,13 @@ export async function scaffoldInto(targetDir, templatesDir, answers = null) {
       raw.integrations[key] = { client_id: p.client_id, allowed_domain: p.allowed_domain }
     }
     await writeFile(configDest, yaml.dump(raw, { lineWidth: -1 }))
+  }
+
+  if (answers?.align) {
+    const workflowSrc = join(templatesDir, 'workflows/upstream-align.yml')
+    const workflowDest = join(targetDir, '.github/workflows/upstream-align.yml')
+    await mkdir(dirname(workflowDest), { recursive: true })
+    await copyFile(workflowSrc, workflowDest)
   }
 
   if (answers?.guardian) {

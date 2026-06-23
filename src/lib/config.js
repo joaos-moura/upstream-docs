@@ -16,6 +16,11 @@ export const DEFAULT_CONFIG = {
   docs_storage: 'local',
   integrations: {},
   link_policy: {},
+  align: {
+    on_violation: 'warn',
+    base_branch: 'auto',
+    post_pr_comment: true,
+  },
 }
 
 export function readConfig(configPath) {
@@ -23,5 +28,9 @@ export function readConfig(configPath) {
   const raw = readFileSync(configPath, 'utf8')
   const parsed = yaml.load(raw)
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...DEFAULT_CONFIG }
-  return { ...DEFAULT_CONFIG, ...parsed }
+  return {
+    ...DEFAULT_CONFIG,
+    ...parsed,
+    align: { ...DEFAULT_CONFIG.align, ...(parsed.align ?? {}) },
+  }
 }
