@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-06-23
+
+### Fixed
+- `upstream validate` now fetches full document content when `docs_storage: link` — previously used stub content for both heuristic and LLM analysis, resulting in low-quality alignment checks; now fetches via Google Docs or Confluence provider and falls back to stub with a warning if unauthenticated or provider unavailable
+
+## [0.3.0] - 2026-06-23
+
+### Added
+- `upstream validate` — CLI command that checks whether the current branch's diff is aligned with its PRD/ADR; runs LLM analysis via `claude -p` with heuristic fallback; exits 1 when `on_violation: block` and verdict is `misaligned`
+- `upstream validate --format json` — machine-readable output with `{ engine, verdict, findings, prdPath, adrPath }` shape
+- `upstream validate --base <branch>` — override the base branch used for diff
+- Heuristic alignment engine — detects out-of-scope changes, dependency additions, config drift, and test coverage gaps without requiring Claude CLI
+- LLM analysis prompt builder and response parser (`src/lib/align/prompt.js`)
+- GitHub PR comment posting — posts alignment verdict as a PR comment when `GITHUB_TOKEN` and `GITHUB_REPOSITORY` are set (`src/lib/align/github.js`)
+- `upstream-align` Claude Code skill — guides the alignment check workflow within Claude sessions
+- `upstream-align.yml` GitHub Actions workflow template — scaffolded by `upstream init` to run `upstream validate` on PRs
+- Alignment check prompts added to `upstream init` wizard (`align.base_branch`, `align.on_violation`, `align.post_pr_comment`)
+- `align` defaults added to `upstream.config.yaml` schema
+
 ## [0.2.0] - 2026-06-23
 
 ### Added
