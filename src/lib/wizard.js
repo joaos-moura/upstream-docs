@@ -125,5 +125,34 @@ export async function runWizard(prefilled = {}) {
     }
   }
 
-  return { docs_storage, docs_path, providers, guardian, ...orgDefaults }
+  let align = prefilled.align !== undefined ? prefilled.align : null
+
+  if (align === null && process.stdin.isTTY) {
+    const enableAlign = await confirm({
+      message: 'Enable alignment checks? (pre-push + automatic PR comments)',
+      default: true,
+    })
+
+    if (enableAlign) {
+      const onViolation = await select({
+        message: 'On alignment violation:',
+        choices: [
+          { value: 'warn', name: 'warn — show findings but allow push/PR' },
+          { value: 'block', name: 'block — prevent push and fail the PR check' },
+        ],
+      })
+
+      const baseBranchInput = await input({
+        message: 'Base branch for diff (leave blank to auto-detect):',
+        default: '',
+      })
+
+      align = {
+        on_violation: onViolation,
+        base_branch: baseBranchInput.trim() || 'auto',
+      }
+    }
+  }
+
+  return { docs_storage, docs_path, providers, guardian, ...orgDefaults, align }
 }
