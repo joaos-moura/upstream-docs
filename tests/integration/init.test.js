@@ -1,13 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdirSync, rmSync, existsSync, statSync, writeFileSync } from 'fs'
-import { execSync } from 'child_process'
+import { existsSync, statSync, writeFileSync, readFileSync } from 'fs'
+import { execFileSync } from 'child_process'
 import { join } from 'path'
-import { fileURLToPath } from 'url'
 import { GENERATED_FILES } from '../../src/lib/scaffold.js'
-
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const TARGET = '/tmp/upstream-test-init'
-const CLI = join(__dirname, '../../bin/upstream.js')
+import { makeTmpRepo, CLI, runCLI } from '../helpers.js'
 
 const ANSWERS_LOCAL = JSON.stringify({
   docs_storage: 'local',
@@ -29,66 +25,60 @@ const ANSWERS_LINK = JSON.stringify({
   adr_triggers: ['database_schema_change'],
 })
 
-beforeEach(() => {
-  mkdirSync(TARGET, { recursive: true })
-  execSync('git init -q', { cwd: TARGET })
-})
-afterEach(() => { rmSync(TARGET, { recursive: true, force: true }) })
+let repo
+
+beforeEach(() => { repo = makeTmpRepo({ git: true }) })
+afterEach(() => repo.cleanup())
 
 describe('upstream init', () => {
   it('creates all expected files with --from answers', () => {
-    writeFileSync(join(TARGET, 'answers.json'), ANSWERS_LOCAL)
-    execSync(`node ${CLI} init --from answers.json`, { cwd: TARGET })
+    writeFileSync(join(repo.dir, 'answers.json'), ANSWERS_LOCAL)
+    execFileSync(process.execPath, [CLI, 'init', '--from', 'answers.json'], { cwd: repo.dir, stdio: 'pipe' })
     for (const f of GENERATED_FILES) {
-      expect(existsSync(join(TARGET, f)), `${f} should exist`).toBe(true)
+      expect(existsSync(join(repo.dir, f)), `${f} should exist`).toBe(true)
     }
-    expect(existsSync(join(TARGET, 'upstream.config.yaml'))).toBe(true)
-    expect(existsSync(join(TARGET, 'docs/upstream/.gitkeep'))).toBe(true)
+    expect(existsSync(join(repo.dir, 'upstream.config.yaml'))).toBe(true)
+    expect(existsSync(join(repo.dir, 'docs/upstream/.gitkeep'))).toBe(true)
   })
 
   it('generates upstream.config.yaml with correct docs_storage', () => {
-    writeFileSync(join(TARGET, 'answers.json'), ANSWERS_LOCAL)
-    execSync(`node ${CLI} init --from answers.json`, { cwd: TARGET })
-    const content = execSync(`cat ${join(TARGET, 'upstream.config.yaml')}`).toString()
+    writeFileSync(join(repo.dir, 'answers.json'), ANSWERS_LOCAL)
+    execFileSync(process.execPath, [CLI, 'init', '--from', 'answers.json'], { cwd: repo.dir, stdio: 'pipe' })
+    const content = readFileSync(join(repo.dir, 'upstream.config.yaml'), 'utf8')
     expect(content).toContain('docs_storage: local')
   })
 
   it('writes CODEOWNERS when guardian provided', () => {
-    writeFileSync(join(TARGET, 'answers.json'), ANSWERS_LINK)
-    execSync(`node ${CLI} init --from answers.json`, { cwd: TARGET })
-    const codeowners = join(TARGET, '.github/CODEOWNERS')
+    writeFileSync(join(repo.dir, 'answers.json'), ANSWERS_LINK)
+    execFileSync(process.execPath, [CLI, 'init', '--from', 'answers.json'], { cwd: repo.dir, stdio: 'pipe' })
+    const codeowners = join(repo.dir, '.github/CODEOWNERS')
     expect(existsSync(codeowners)).toBe(true)
-    const content = execSync(`cat ${codeowners}`).toString()
-    expect(content).toContain('upstream.config.yaml @infra-team')
+    expect(readFileSync(codeowners, 'utf8')).toContain('upstream.config.yaml @infra-team')
   })
 
   it('makes the hook executable', () => {
-    writeFileSync(join(TARGET, 'answers.json'), ANSWERS_LOCAL)
-    execSync(`node ${CLI} init --from answers.json`, { cwd: TARGET })
-    const mode = statSync(join(TARGET, '.claude/hooks/upstream-check.sh')).mode
+    writeFileSync(join(repo.dir, 'answers.json'), ANSWERS_LOCAL)
+    execFileSync(process.execPath, [CLI, 'init', '--from', 'answers.json'], { cwd: repo.dir, stdio: 'pipe' })
+    const mode = statSync(join(repo.dir, '.claude/hooks/upstream-check.sh')).mode
     expect(mode & 0o111).toBeGreaterThan(0)
   })
 
   it('exits with code 0', () => {
-    writeFileSync(join(TARGET, 'answers.json'), ANSWERS_LOCAL)
-    expect(() => execSync(`node ${CLI} init --from answers.json`, { cwd: TARGET })).not.toThrow()
+    writeFileSync(join(repo.dir, 'answers.json'), ANSWERS_LOCAL)
+    const { exitCode } = runCLI(['init', '--from', 'answers.json'], { cwd: repo.dir })
+    expect(exitCode).toBe(0)
   })
 
   it('accepts --docs-storage and --yes flags', () => {
-    expect(() =>
-      execSync(`node ${CLI} init --docs-storage local --yes`, { cwd: TARGET })
-    ).not.toThrow()
-    expect(existsSync(join(TARGET, 'upstream.config.yaml'))).toBe(true)
+    const { exitCode } = runCLI(['init', '--docs-storage', 'local', '--yes'], { cwd: repo.dir })
+    expect(exitCode).toBe(0)
+    expect(existsSync(join(repo.dir, 'upstream.config.yaml'))).toBe(true)
   })
 
   it('fails gracefully on invalid --from JSON', () => {
-    writeFileSync(join(TARGET, 'bad.json'), 'not json')
-    let output = ''
-    try {
-      execSync(`node ${CLI} init --from bad.json`, { cwd: TARGET, stdio: 'pipe' })
-    } catch (err) {
-      output = err.stderr?.toString() || err.stdout?.toString() || ''
-    }
-    expect(output).toMatch(/not valid JSON/i)
+    writeFileSync(join(repo.dir, 'bad.json'), 'not json')
+    const { stderr, stdout, exitCode } = runCLI(['init', '--from', 'bad.json'], { cwd: repo.dir })
+    expect(exitCode).toBe(1)
+    expect(stderr + stdout).toMatch(/not valid JSON/i)
   })
 })

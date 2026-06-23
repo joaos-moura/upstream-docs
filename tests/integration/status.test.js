@@ -1,100 +1,83 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdirSync, rmSync, writeFileSync } from 'fs'
-import { execSync } from 'child_process'
+import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
-import { fileURLToPath } from 'url'
+import { makeTmpRepo, runCLI, writeMinimalConfig } from '../helpers.js'
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const TARGET = '/tmp/upstream-status-test'
-const CLI = join(__dirname, '../../bin/upstream.js')
+let repo
 
-function git(cmd) {
-  execSync(cmd, { cwd: TARGET, stdio: 'pipe' })
-}
-
-beforeEach(() => {
-  mkdirSync(TARGET, { recursive: true })
-  git('git init -q')
-  git('git config user.email "test@test.com"')
-  git('git config user.name "Test"')
-  git('git commit --allow-empty -m "init"')
-  execSync(`node ${CLI} init --yes`, { cwd: TARGET })
-})
-afterEach(() => { rmSync(TARGET, { recursive: true, force: true }) })
+beforeEach(() => { repo = makeTmpRepo({ init: true }) })
+afterEach(() => repo.cleanup())
 
 describe('upstream status', () => {
   it('reports bypass for fix/ branch', () => {
-    git('git checkout -b fix/some-bug')
-    const out = execSync(`node ${CLI} status`, { cwd: TARGET, stdio: 'pipe' }).toString()
-    expect(out).toContain('bypass')
-    expect(out).toContain('fix/')
+    repo.git('checkout', '-b', 'fix/some-bug')
+    const { stdout } = runCLI('status', { cwd: repo.dir })
+    expect(stdout).toContain('bypass')
+    expect(stdout).toContain('fix/')
   })
 
   it('exits 0 for bypass branch', () => {
-    git('git checkout -b fix/some-bug')
-    expect(() => execSync(`node ${CLI} status`, { cwd: TARGET, stdio: 'pipe' })).not.toThrow()
+    repo.git('checkout', '-b', 'fix/some-bug')
+    const { exitCode } = runCLI('status', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
   })
 
   it('exits 1 for feature branch with no PRD', () => {
-    git('git checkout -b feat/new-feature')
-    expect(() => execSync(`node ${CLI} status`, { cwd: TARGET, stdio: 'pipe' })).toThrow()
+    repo.git('checkout', '-b', 'feat/new-feature')
+    const { exitCode } = runCLI('status', { cwd: repo.dir })
+    expect(exitCode).toBe(1)
   })
 
   it('shows PRD missing for feature branch with no docs', () => {
-    git('git checkout -b feat/new-feature')
-    let output = ''
-    try {
-      execSync(`node ${CLI} status`, { cwd: TARGET, stdio: 'pipe' })
-    } catch (err) {
-      output = err.stdout?.toString() || err.stderr?.toString() || ''
-    }
-    expect(output).toContain('PRD')
-    expect(output).toContain('not found')
+    repo.git('checkout', '-b', 'feat/new-feature')
+    const { stdout } = runCLI('status', { cwd: repo.dir })
+    expect(stdout).toContain('PRD')
+    expect(stdout).toContain('not found')
   })
 
   it('exits 0 when PRD found by filename', () => {
-    git('git checkout -b feat/new-feature')
-    writeFileSync(join(TARGET, 'docs/upstream/PRD-new-feature.md'), '# PRD: New Feature\n')
-    expect(() => execSync(`node ${CLI} status`, { cwd: TARGET })).not.toThrow()
+    repo.git('checkout', '-b', 'feat/new-feature')
+    writeFileSync(join(repo.dir, 'docs/upstream/PRD-new-feature.md'), '# PRD: New Feature\n')
+    const { exitCode } = runCLI('status', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
   })
 
   it('shows PRD as found when matched by filename', () => {
-    git('git checkout -b feat/new-feature')
-    const prdPath = join(TARGET, 'docs/upstream/PRD-new-feature.md')
-    writeFileSync(prdPath, '# PRD: New Feature\n')
-    const out = execSync(`node ${CLI} status`, { cwd: TARGET }).toString()
-    expect(out).toContain('PRD')
-    expect(out).toContain('PRD-new-feature.md')
+    repo.git('checkout', '-b', 'feat/new-feature')
+    writeFileSync(join(repo.dir, 'docs/upstream/PRD-new-feature.md'), '# PRD: New Feature\n')
+    const { stdout } = runCLI('status', { cwd: repo.dir })
+    expect(stdout).toContain('PRD')
+    expect(stdout).toContain('PRD-new-feature.md')
   })
 
   it('finds PRD by content scan when filename does not match', () => {
-    git('git checkout -b feat/new-feature')
+    repo.git('checkout', '-b', 'feat/new-feature')
     writeFileSync(
-      join(TARGET, 'docs/upstream/PRD-some-unrelated-name.md'),
+      join(repo.dir, 'docs/upstream/PRD-some-unrelated-name.md'),
       '# PRD: Something\n\nBranch: feat/new-feature\n'
     )
-    const out = execSync(`node ${CLI} status`, { cwd: TARGET }).toString()
-    expect(out).toContain('PRD')
-    expect(out).not.toContain('not found')
+    const { stdout } = runCLI('status', { cwd: repo.dir })
+    expect(stdout).toContain('PRD')
+    expect(stdout).not.toContain('not found')
   })
 
   it('shows ADR when both PRD and ADR are present', () => {
-    git('git checkout -b feat/new-feature')
-    writeFileSync(join(TARGET, 'docs/upstream/PRD-new-feature.md'), '# PRD: New Feature\n')
-    writeFileSync(join(TARGET, 'docs/upstream/ADR-new-feature.md'), '# ADR-001: New Feature\n')
-    const out = execSync(`node ${CLI} status`, { cwd: TARGET }).toString()
-    expect(out).toContain('ADR')
-    expect(out).toContain('ADR-new-feature.md')
+    repo.git('checkout', '-b', 'feat/new-feature')
+    writeFileSync(join(repo.dir, 'docs/upstream/PRD-new-feature.md'), '# PRD: New Feature\n')
+    writeFileSync(join(repo.dir, 'docs/upstream/ADR-new-feature.md'), '# ADR-001: New Feature\n')
+    const { stdout } = runCLI('status', { cwd: repo.dir })
+    expect(stdout).toContain('ADR')
+    expect(stdout).toContain('ADR-new-feature.md')
   })
 
   it('exits 1 when not in a git repo', () => {
-    const notGit = '/tmp/upstream-not-git'
-    mkdirSync(notGit, { recursive: true })
-    writeFileSync(join(notGit, 'upstream.config.yaml'), 'version: 1\n')
+    const { dir: notGit, cleanup } = makeTmpRepo()
+    writeMinimalConfig(notGit)
     try {
-      expect(() => execSync(`node ${CLI} status`, { cwd: notGit, stdio: 'pipe' })).toThrow()
+      const { exitCode } = runCLI('status', { cwd: notGit })
+      expect(exitCode).toBe(1)
     } finally {
-      rmSync(notGit, { recursive: true, force: true })
+      cleanup()
     }
   })
 })
