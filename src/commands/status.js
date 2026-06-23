@@ -3,34 +3,10 @@ import { join, basename } from 'path'
 import { execSync } from 'child_process'
 import chalk from 'chalk'
 import { readConfig } from '../lib/config.js'
+import { getSlug, scanDocs, classifyFile } from '../lib/docs.js'
 
 function getCurrentBranch() {
   return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8', stdio: 'pipe' }).trim()
-}
-
-function getSlug(branch) {
-  const idx = branch.indexOf('/')
-  return idx === -1 ? branch : branch.slice(idx + 1)
-}
-
-function scanDocs(docsPath, branch, slug) {
-  const files = readdirSync(docsPath).filter(f => f.endsWith('.md'))
-  return files.filter(f => {
-    if (basename(f).toLowerCase().includes(slug.toLowerCase())) return true
-    try { return readFileSync(join(docsPath, f), 'utf8').includes(branch) } catch { return false }
-  })
-}
-
-function classifyFile(filePath) {
-  const name = basename(filePath).toUpperCase()
-  if (name.includes('PRD')) return 'prd'
-  if (name.includes('ADR')) return 'adr'
-  try {
-    const first = readFileSync(filePath, 'utf8').split('\n').find(l => l.startsWith('#')) ?? ''
-    if (first.toUpperCase().includes('PRD')) return 'prd'
-    if (first.toUpperCase().includes('ADR')) return 'adr'
-  } catch {}
-  return null
 }
 
 export function statusCommand(cwd = process.cwd()) {
