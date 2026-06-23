@@ -98,8 +98,8 @@ export async function validateCommand({ outputFormat = 'human', base = null } = 
   if (config.align?.post_pr_comment !== false) {
     try {
       await postPrComment(result, process.env)
-    } catch {
-      // Non-fatal — comment posting failure should not block validate
+    } catch (err) {
+      console.warn(`upstream validate: PR comment failed — ${err.message}`)
     }
   }
 

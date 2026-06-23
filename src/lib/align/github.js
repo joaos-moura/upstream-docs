@@ -42,7 +42,9 @@ export async function postPrComment(result, env) {
   const { GITHUB_TOKEN, GITHUB_PR_NUMBER, GITHUB_REPOSITORY } = env
   if (!GITHUB_TOKEN || !GITHUB_PR_NUMBER || !GITHUB_REPOSITORY) return
 
-  const [owner, repo] = GITHUB_REPOSITORY.split('/')
+  const parts = GITHUB_REPOSITORY.split('/')
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return
+  const [owner, repo] = parts
   const body = formatComment(result)
 
   const response = await fetch(
