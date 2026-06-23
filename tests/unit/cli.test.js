@@ -1,21 +1,23 @@
-import { execSync } from 'child_process'
 import { describe, it, expect } from 'vitest'
-import { fileURLToPath } from 'url'
-import { join } from 'path'
-
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const CLI = join(__dirname, '../../bin/upstream.js')
+import { runCLI } from '../helpers.js'
 
 describe('CLI entry point', () => {
-  it('shows help with init and upgrade commands', () => {
-    const out = execSync(`node ${CLI} --help`).toString()
-    expect(out).toContain('upstream')
-    expect(out).toContain('init')
-    expect(out).toContain('upgrade')
+  it('shows all commands in --help', () => {
+    const { stdout } = runCLI('--help')
+    expect(stdout).toContain('upstream')
+    for (const cmd of ['init', 'upgrade', 'doctor', 'status', 'auth', 'mcp']) {
+      expect(stdout).toContain(cmd)
+    }
   })
 
-  it('shows version', () => {
-    const out = execSync(`node ${CLI} --version`).toString()
-    expect(out.trim()).toMatch(/^\d+\.\d+\.\d+$/)
+  it('shows version as semver', () => {
+    const { stdout } = runCLI('--version')
+    expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/)
+  })
+
+  it('exits 1 and prints error for unknown command', () => {
+    const { exitCode, stderr } = runCLI('no-such-command')
+    expect(exitCode).toBe(1)
+    expect(stderr).toMatch(/unknown command/i)
   })
 })
