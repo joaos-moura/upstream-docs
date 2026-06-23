@@ -11,6 +11,7 @@ import { upgradeCommand } from '../src/commands/upgrade.js'
 import { authCommand, authLogoutCommand } from '../src/commands/auth.js'
 import { doctorCommand } from '../src/commands/doctor.js'
 import { statusCommand } from '../src/commands/status.js'
+import { listCommand } from '../src/commands/list.js'
 import { startMcpServer } from '../src/lib/mcp/server.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -60,6 +61,12 @@ program
   .command('status')
   .description('Show PRD/ADR state for the current git branch')
   .action(() => statusCommand())
+
+program
+  .command('list')
+  .description('Show PRD/ADR coverage for all feature branches')
+  .option('--format <fmt>', 'output format: table or json', 'table')
+  .action((opts) => listCommand(opts))
 
 program
   .command('mcp')
