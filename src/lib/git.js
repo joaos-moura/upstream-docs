@@ -1,4 +1,6 @@
-import { execSync } from 'child_process'
+import { execSync, execFileSync } from 'child_process'
+
+const SAFE_BRANCH_RE = /^[\w./\-]+$/
 
 export function resolveBaseBranch(configBase) {
   if (configBase && configBase !== 'auto') return configBase
@@ -16,10 +18,10 @@ export function getCurrentBranch() {
 }
 
 export function getDiff(baseBranch, maxBytes = 10 * 1024 * 1024) {
+  if (!SAFE_BRANCH_RE.test(baseBranch)) return ''
   try {
-    return execSync(`git diff ${baseBranch}...HEAD`, {
+    return execFileSync('git', ['diff', `${baseBranch}...HEAD`], {
       encoding: 'utf8',
-      stdio: 'pipe',
       maxBuffer: maxBytes,
     })
   } catch {
