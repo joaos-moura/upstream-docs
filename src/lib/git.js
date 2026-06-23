@@ -23,7 +23,7 @@ export function getDiff(baseBranch, maxBytes = 10 * 1024 * 1024) {
     return execFileSync('git', ['diff', `${baseBranch}...HEAD`], {
       encoding: 'utf8',
       maxBuffer: maxBytes,
-    })
+    }) ?? ''
   } catch {
     return ''
   }
