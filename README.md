@@ -82,6 +82,11 @@ Your team gets the plugin on their next `git pull`. No global install required o
 | `upstream doctor` | Check upstream installation health in the current repo |
 | `upstream doctor --fix` | Repair missing or misconfigured files automatically |
 | `upstream status` | Show PRD/ADR state for the current git branch |
+| `upstream list` | Show PRD/ADR coverage for all local feature branches |
+| `upstream list --format json` | Machine-readable coverage output (`{ branches, unlinked }`) |
+| `upstream validate` | Check whether the current branch diff is aligned with its PRD/ADR |
+| `upstream validate --format json` | Machine-readable alignment result (`{ verdict, engine, findings }`) |
+| `upstream validate --base <branch>` | Override the base branch used for diff |
 | `upstream mcp` | Start the upstream MCP server (called automatically by Claude Code) |
 
 ### `upstream init` flags
@@ -132,6 +137,12 @@ docs_path: docs/upstream/
 # 'local': full document content in this repo
 # 'link': stub file with URL; actual doc lives externally
 docs_storage: local
+
+# Alignment check (used by upstream validate)
+align:
+  base_branch: main          # branch to diff against
+  on_violation: warn         # 'warn' (default) or 'block' (exits 1 when misaligned)
+  post_pr_comment: true      # post verdict as a PR comment when GITHUB_TOKEN is set
 ```
 
 ---
@@ -241,6 +252,32 @@ During `upstream init`, you can designate a GitHub handle or email as the guardi
 
 ---
 
+## Alignment check — `upstream validate`
+
+`upstream validate` checks whether the current branch's diff is aligned with its PRD and ADR. It runs automatically in CI via the scaffolded `upstream-align.yml` workflow, and can also be run locally.
+
+```bash
+upstream validate             # human-readable output
+upstream validate --format json  # machine-readable (for CI scripts)
+```
+
+**Engines:**
+- **LLM** — uses `claude -p` to analyse the diff against the PRD/ADR; provides a natural-language summary and per-dimension findings
+- **Heuristic** — fallback when Claude CLI is unavailable; detects out-of-scope changes, new dependencies, config drift, and missing test coverage from the diff
+
+**Verdict:**
+- `aligned` — diff is consistent with the PRD/ADR
+- `warning` — minor concerns, but not blocking
+- `misaligned` — significant scope creep or deviation detected
+
+Set `align.on_violation: block` in `upstream.config.yaml` to make `upstream validate` exit 1 on `misaligned`, blocking the CI pipeline.
+
+**PR comments:** when `GITHUB_TOKEN` and `GITHUB_REPOSITORY` are set (standard in GitHub Actions), upstream posts the verdict as a PR comment automatically. Set `align.post_pr_comment: false` to disable.
+
+**Link mode:** when `docs_storage: link`, `upstream validate` fetches the full document from the provider (Google Docs or Confluence) before analysis. If the provider is unavailable or unauthenticated, it falls back to stub content with a warning.
+
+---
+
 ## Skipping
 
 If a PRD or ADR genuinely isn't needed, developers can skip with a justification. The skip is logged to `<docs_path>/SKIPS.md` and a PR snippet is generated for transparency:
@@ -266,12 +303,16 @@ If a PRD or ADR genuinely isn't needed, developers can skip with a justification
       upstream-guard.md         # orchestration skill
       upstream-prd.md           # PRD creation skill
       upstream-adr.md           # ADR creation skill
+      upstream-align.md         # alignment check skill (used by upstream validate)
     templates/
       PRD.md                    # PRD template
       ADR.md                    # ADR template
       PRD-link.md               # stub template for link mode
       ADR-link.md               # stub template for link mode
   settings.json                 # MCP server registration (upstream mcp)
+.github/
+  workflows/
+    upstream-align.yml          # runs upstream validate on every PR
 upstream.config.yaml            # org configuration
 .env.example                    # env var placeholders (shows required secrets, safe to commit)
 .gitignore                      # updated by upstream init to exclude .env/.env.local/.env.test
