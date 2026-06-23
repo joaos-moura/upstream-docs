@@ -8,6 +8,7 @@ import { getCurrentBranch, resolveBaseBranch, getDiff } from '../lib/git.js'
 import { runHeuristics } from '../lib/align/heuristics.js'
 import { buildAnalysisPrompt, parseAnalysisResponse } from '../lib/align/prompt.js'
 import { formatComment, postPrComment } from '../lib/align/github.js'
+import { fetchDocContent } from '../lib/align/fetch-doc.js'
 
 function tryClaudeAnalysis(prdContent, adrContent, diff) {
   const prompt = buildAnalysisPrompt(prdContent, adrContent, diff)
@@ -58,8 +59,18 @@ export async function validateCommand({ outputFormat = 'human', base = null } = 
     return skipped
   }
 
-  const prdContent = readFileSync(join(docsPath, prdFile), 'utf8')
-  const adrContent = adrFile ? readFileSync(join(docsPath, adrFile), 'utf8') : null
+  const prdStub = readFileSync(join(docsPath, prdFile), 'utf8')
+  const adrStub = adrFile ? readFileSync(join(docsPath, adrFile), 'utf8') : null
+
+  const appConfig = config.integrations ?? {}
+  const prdResult = await fetchDocContent(prdStub, appConfig)
+  const adrResult = adrStub ? await fetchDocContent(adrStub, appConfig) : null
+
+  if (prdResult.warning) console.warn(chalk.yellow(`upstream validate: ${prdResult.warning}`))
+  if (adrResult?.warning) console.warn(chalk.yellow(`upstream validate: ${adrResult.warning}`))
+
+  const prdContent = prdResult.content
+  const adrContent = adrResult?.content ?? null
 
   const baseBranch = base ?? resolveBaseBranch(config.align?.base_branch)
   const diff = getDiff(baseBranch)

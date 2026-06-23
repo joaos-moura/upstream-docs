@@ -17,6 +17,7 @@ vi.mock('../../src/lib/config.js', () => ({
 vi.mock('../../src/lib/providers/google-docs.js', () => ({
   extractId: vi.fn(),
   getMetadata: vi.fn(),
+  getContent: vi.fn(),
   refreshTokenIfNeeded: vi.fn(),
   exchangeCode: vi.fn(),
   getIdentity: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock('../../src/lib/providers/google-docs.js', () => ({
 vi.mock('../../src/lib/providers/confluence.js', () => ({
   extractId: vi.fn(),
   getMetadata: vi.fn(),
+  getContent: vi.fn(),
   refreshTokenIfNeeded: vi.fn(),
   exchangeCode: vi.fn(),
   getIdentity: vi.fn(),

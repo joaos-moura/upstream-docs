@@ -66,6 +66,31 @@ export function validateDomain(identity, config) {
   return identity.email?.endsWith(`@${config.allowed_domain}`) ?? false
 }
 
+export async function getContent(docId, accessToken) {
+  return new Promise((resolve, reject) => {
+    const req = https.get({
+      hostname: 'www.googleapis.com',
+      path: `/drive/v3/files/${encodeURIComponent(docId)}/export?mimeType=text%2Fplain`,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }, (res) => {
+      let data = ''
+      res.on('data', chunk => { data += chunk })
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          resolve(data)
+        } else {
+          let msg = `Drive export error ${res.statusCode}`
+          try { msg = JSON.parse(data)?.error?.message || msg } catch { /* ignore */ }
+          const err = new Error(msg)
+          err.status = res.statusCode
+          reject(err)
+        }
+      })
+    })
+    req.on('error', reject)
+  })
+}
+
 export async function getMetadata(docId, accessToken) {
   return new Promise((resolve, reject) => {
     const req = https.get({

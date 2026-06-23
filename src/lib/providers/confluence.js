@@ -97,6 +97,38 @@ export function enrichToken(tokenData, identity, config) {
   return { ...tokenData, base_url: site?.url ?? null }
 }
 
+export function getContent({ id, baseUrl }, accessToken) {
+  if (!baseUrl || !/^https:\/\//i.test(baseUrl)) throw new Error('getContent: baseUrl must be an HTTPS URL')
+  if (!/^https:\/\/[^/]+\.atlassian\.net(\/|$)/i.test(baseUrl)) throw new Error('getContent: baseUrl must be an atlassian.net host')
+  if (!/^\d+$/.test(String(id))) throw new Error('getContent: id must be numeric')
+  const host = new URL(baseUrl).hostname
+  return new Promise((resolve, reject) => {
+    const req = https.get({
+      hostname: host,
+      path: `/wiki/api/v2/pages/${id}?body-format=view`,
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+    }, (res) => {
+      let data = ''
+      res.on('data', chunk => { data += chunk })
+      res.on('end', () => {
+        let parsed
+        try { parsed = JSON.parse(data) } catch { parsed = null }
+        if (res.statusCode === 200 && parsed) {
+          const html = parsed.body?.view?.value ?? ''
+          const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+          resolve(text)
+        } else {
+          const msg = parsed?.message || `Confluence API error ${res.statusCode}`
+          const err = new Error(msg)
+          err.status = res.statusCode
+          reject(err)
+        }
+      })
+    })
+    req.on('error', reject)
+  })
+}
+
 export function getMetadata({ id, baseUrl }, accessToken) {
   if (!baseUrl || !/^https:\/\//i.test(baseUrl)) throw new Error('getMetadata: baseUrl must be an HTTPS URL')
   if (!/^https:\/\/[^/]+\.atlassian\.net(\/|$)/i.test(baseUrl)) throw new Error('getMetadata: baseUrl must be an atlassian.net host')

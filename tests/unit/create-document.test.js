@@ -14,13 +14,13 @@ vi.mock('../../src/lib/config.js', () => ({
 
 vi.mock('../../src/lib/providers/google-docs.js', () => ({
   extractId: vi.fn(), exchangeCode: vi.fn(), getIdentity: vi.fn(),
-  getMetadata: vi.fn(), validateDomain: vi.fn(), refreshTokenIfNeeded: vi.fn(),
+  getMetadata: vi.fn(), getContent: vi.fn(), validateDomain: vi.fn(), refreshTokenIfNeeded: vi.fn(),
   createDocument: vi.fn(),
 }))
 
 vi.mock('../../src/lib/providers/confluence.js', () => ({
   extractId: vi.fn(), exchangeCode: vi.fn(), getIdentity: vi.fn(), validateDomain: vi.fn(),
-  enrichToken: vi.fn(), getMetadata: vi.fn(), refreshTokenIfNeeded: vi.fn(), createDocument: vi.fn(),
+  enrichToken: vi.fn(), getMetadata: vi.fn(), getContent: vi.fn(), refreshTokenIfNeeded: vi.fn(), createDocument: vi.fn(),
 }))
 
 import { getProviderToken } from '../../src/lib/tokens.js'
