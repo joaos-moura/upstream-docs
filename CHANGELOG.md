@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-23
+
+### Added
+- `upstream list` — shows PRD/ADR coverage for all local feature branches in a table, with a second section for unlinked documents (docs in `docs_path` with no active branch match)
+- `upstream list --format json` — machine-readable output with `{ branches, unlinked }` shape, suitable for CI scripts and tooling
+- ADR requirement detection in `upstream list` — branches whose PRD contains any `adr_triggers` keyword show `⚠ required, missing` when no ADR is present, instead of `—`
+- `src/lib/docs.js` — shared library with `getSlug`, `scanDocs`, `classifyFile`, `adrRequired` helpers, reused by both `upstream status` and `upstream list`
+
 ## [0.1.0] - 2026-06-14
 
 ### Added
