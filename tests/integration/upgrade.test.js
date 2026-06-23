@@ -1,36 +1,29 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdirSync, rmSync, readFileSync, writeFileSync } from 'fs'
-import { execSync } from 'child_process'
+import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { fileURLToPath } from 'url'
+import { makeTmpRepo, runCLI } from '../helpers.js'
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const TARGET = '/tmp/upstream-test-upgrade'
-const CLI = join(__dirname, '../../bin/upstream.js')
+let repo
 
-beforeEach(() => {
-  mkdirSync(TARGET, { recursive: true })
-  execSync('git init -q', { cwd: TARGET })
-  execSync(`node ${CLI} init --yes`, { cwd: TARGET })
-})
-afterEach(() => { rmSync(TARGET, { recursive: true, force: true }) })
+beforeEach(() => { repo = makeTmpRepo({ init: true }) })
+afterEach(() => repo.cleanup())
 
 describe('upstream upgrade', () => {
   it('preserves existing upstream.config.yaml', () => {
-    const configPath = join(TARGET, 'upstream.config.yaml')
+    const configPath = join(repo.dir, 'upstream.config.yaml')
     const custom = 'version: 1\ncustom_field: preserved\n'
     writeFileSync(configPath, custom)
 
-    execSync(`node ${CLI} upgrade`, { cwd: TARGET })
+    runCLI('upgrade', { cwd: repo.dir })
 
     expect(readFileSync(configPath, 'utf8')).toBe(custom)
   })
 
   it('overwrites skill files with latest content', () => {
-    const guardPath = join(TARGET, '.claude/plugins/upstream/skills/upstream-guard.md')
+    const guardPath = join(repo.dir, '.claude/plugins/upstream/skills/upstream-guard.md')
     writeFileSync(guardPath, '# stale content')
 
-    execSync(`node ${CLI} upgrade`, { cwd: TARGET })
+    runCLI('upgrade', { cwd: repo.dir })
 
     const content = readFileSync(guardPath, 'utf8')
     expect(content).not.toBe('# stale content')
@@ -38,6 +31,7 @@ describe('upstream upgrade', () => {
   })
 
   it('exits with code 0', () => {
-    expect(() => execSync(`node ${CLI} upgrade`, { cwd: TARGET })).not.toThrow()
+    const { exitCode } = runCLI('upgrade', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
   })
 })

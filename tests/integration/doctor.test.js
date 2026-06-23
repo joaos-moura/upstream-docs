@@ -1,69 +1,59 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdirSync, rmSync, readFileSync, writeFileSync, unlinkSync, chmodSync } from 'fs'
-import { execSync } from 'child_process'
+import { readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
-import { fileURLToPath } from 'url'
+import { makeTmpRepo, runCLI } from '../helpers.js'
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const TARGET = '/tmp/upstream-doctor-test'
-const CLI = join(__dirname, '../../bin/upstream.js')
+let repo
 
-beforeEach(() => {
-  mkdirSync(TARGET, { recursive: true })
-  execSync('git init -q', { cwd: TARGET })
-  execSync(`node ${CLI} init --yes`, { cwd: TARGET })
-})
-afterEach(() => { rmSync(TARGET, { recursive: true, force: true }) })
+beforeEach(() => { repo = makeTmpRepo({ init: true }) })
+afterEach(() => repo.cleanup())
 
 describe('upstream doctor', () => {
   it('exits 0 when all checks pass', () => {
-    expect(() => execSync(`node ${CLI} doctor`, { cwd: TARGET })).not.toThrow()
+    const { exitCode } = runCLI('doctor', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
   })
 
   it('shows all checks as passing in output', () => {
-    const out = execSync(`node ${CLI} doctor`, { cwd: TARGET }).toString()
-    expect(out).toContain('config')
-    expect(out).toContain('hook')
-    expect(out).toContain('mcp')
-    expect(out).toContain('skills')
-    expect(out).toContain('templates')
+    const { stdout } = runCLI('doctor', { cwd: repo.dir })
+    for (const label of ['config', 'hook', 'mcp', 'skills', 'templates']) {
+      expect(stdout).toContain(label)
+    }
   })
 
   it('exits 1 when hook is missing', () => {
-    unlinkSync(join(TARGET, '.claude/hooks/upstream-check.sh'))
-    expect(() => execSync(`node ${CLI} doctor`, { cwd: TARGET, stdio: 'pipe' })).toThrow()
+    unlinkSync(join(repo.dir, '.claude/hooks/upstream-check.sh'))
+    const { exitCode } = runCLI('doctor', { cwd: repo.dir })
+    expect(exitCode).toBe(1)
   })
 
   it('reports missing hook in output', () => {
-    unlinkSync(join(TARGET, '.claude/hooks/upstream-check.sh'))
-    let output = ''
-    try {
-      execSync(`node ${CLI} doctor`, { cwd: TARGET, stdio: 'pipe' })
-    } catch (err) {
-      output = err.stdout?.toString() ?? ''
-    }
-    expect(output).toMatch(/hook/)
+    unlinkSync(join(repo.dir, '.claude/hooks/upstream-check.sh'))
+    const { stdout } = runCLI('doctor', { cwd: repo.dir })
+    expect(stdout).toMatch(/hook/)
   })
 
   it('exits 1 when MCP not registered', () => {
-    const settingsPath = join(TARGET, '.claude/settings.json')
-    writeFileSync(settingsPath, JSON.stringify({ mcpServers: {} }))
-    expect(() => execSync(`node ${CLI} doctor`, { cwd: TARGET, stdio: 'pipe' })).toThrow()
+    writeFileSync(join(repo.dir, '.claude/settings.json'), JSON.stringify({ mcpServers: {} }))
+    const { exitCode } = runCLI('doctor', { cwd: repo.dir })
+    expect(exitCode).toBe(1)
   })
 
   it('exits 1 when a skill file is missing', () => {
-    unlinkSync(join(TARGET, '.claude/plugins/upstream/skills/upstream-guard.md'))
-    expect(() => execSync(`node ${CLI} doctor`, { cwd: TARGET, stdio: 'pipe' })).toThrow()
+    unlinkSync(join(repo.dir, '.claude/plugins/upstream/skills/upstream-guard.md'))
+    const { exitCode } = runCLI('doctor', { cwd: repo.dir })
+    expect(exitCode).toBe(1)
   })
 
   it('--fix repairs missing hook and exits 0', () => {
-    unlinkSync(join(TARGET, '.claude/hooks/upstream-check.sh'))
-    expect(() => execSync(`node ${CLI} doctor --fix`, { cwd: TARGET, stdio: 'pipe' })).not.toThrow()
+    unlinkSync(join(repo.dir, '.claude/hooks/upstream-check.sh'))
+    const { exitCode } = runCLI('doctor --fix', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
   })
 
   it('--fix repairs missing MCP entry and exits 0', () => {
-    const settingsPath = join(TARGET, '.claude/settings.json')
-    writeFileSync(settingsPath, JSON.stringify({ mcpServers: {} }))
-    expect(() => execSync(`node ${CLI} doctor --fix`, { cwd: TARGET, stdio: 'pipe' })).not.toThrow()
+    writeFileSync(join(repo.dir, '.claude/settings.json'), JSON.stringify({ mcpServers: {} }))
+    const { exitCode } = runCLI('doctor --fix', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
   })
 })

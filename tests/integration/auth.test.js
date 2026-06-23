@@ -1,83 +1,92 @@
-import { describe, it, expect } from 'vitest'
-import { execSync } from 'child_process'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { join } from 'path'
-import { fileURLToPath } from 'url'
-import { mkdirSync, rmSync, writeFileSync } from 'fs'
+import { writeFileSync, readFileSync, existsSync } from 'fs'
+import { makeTmpRepo, writeMinimalConfig, runCLI } from '../helpers.js'
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const CLI = join(__dirname, '../../bin/upstream.js')
-const TMP = '/tmp/upstream-auth-test'
+let repo
+
+beforeEach(() => {
+  repo = makeTmpRepo()
+  writeMinimalConfig(repo.dir)
+})
+afterEach(() => repo.cleanup())
 
 describe('upstream auth', () => {
   it('shows error when UPSTREAM_GOOGLE_CLIENT_SECRET env var is missing', () => {
-    mkdirSync(TMP, { recursive: true })
-    writeFileSync(join(TMP, 'upstream.config.yaml'), 'version: 1\n')
-    const saved = process.env.UPSTREAM_GOOGLE_CLIENT_SECRET
-    delete process.env.UPSTREAM_GOOGLE_CLIENT_SECRET
-
-    let output = ''
-    try {
-      execSync(`node ${CLI} auth google-docs`, { cwd: TMP, stdio: 'pipe', env: { ...process.env } })
-    } catch (err) {
-      output = err.stderr?.toString() || err.stdout?.toString() || ''
-    }
-    rmSync(TMP, { recursive: true, force: true })
-    if (saved !== undefined) process.env.UPSTREAM_GOOGLE_CLIENT_SECRET = saved
-
-    expect(output).toMatch(/UPSTREAM_GOOGLE_CLIENT_SECRET/i)
+    const { stderr } = runCLI('auth google-docs', {
+      cwd: repo.dir,
+      env: { UPSTREAM_GOOGLE_CLIENT_SECRET: '' },
+    })
+    expect(stderr).toMatch(/UPSTREAM_GOOGLE_CLIENT_SECRET/i)
   })
 
-  it('upstream auth status exits 0 and shows providers', () => {
-    mkdirSync(TMP, { recursive: true })
-    writeFileSync(join(TMP, 'upstream.config.yaml'), 'version: 1\n')
-    process.env.UPSTREAM_TOKENS_PATH = join(TMP, 'tokens.json')
-
-    const output = execSync(`node ${CLI} auth status`, { cwd: TMP }).toString()
-    rmSync(TMP, { recursive: true, force: true })
-    delete process.env.UPSTREAM_TOKENS_PATH
-
-    expect(output).toContain('google-docs')
-  })
-
-  it('shows error when confluence credentials missing from config', () => {
-    mkdirSync(TMP, { recursive: true })
-    writeFileSync(join(TMP, 'upstream.config.yaml'), 'version: 1\n')
-
-    let output = ''
-    try {
-      execSync(`node ${CLI} auth confluence`, { cwd: TMP, stdio: 'pipe' })
-    } catch (err) {
-      output = err.stderr?.toString() || err.stdout?.toString() || ''
-    }
-    rmSync(TMP, { recursive: true, force: true })
-
-    expect(output).toMatch(/UPSTREAM_CONFLUENCE_CLIENT_SECRET/i)
+  it('shows error when UPSTREAM_CONFLUENCE_CLIENT_SECRET env var is missing', () => {
+    const { stderr } = runCLI('auth confluence', {
+      cwd: repo.dir,
+      env: { UPSTREAM_CONFLUENCE_CLIENT_SECRET: '' },
+    })
+    expect(stderr).toMatch(/UPSTREAM_CONFLUENCE_CLIENT_SECRET/i)
   })
 
   it('shows error for unknown provider', () => {
-    mkdirSync(TMP, { recursive: true })
-    writeFileSync(join(TMP, 'upstream.config.yaml'), 'version: 1\n')
-
-    let output = ''
-    try {
-      execSync(`node ${CLI} auth foobar`, { cwd: TMP, stdio: 'pipe' })
-    } catch (err) {
-      output = err.stderr?.toString() || err.stdout?.toString() || ''
-    }
-    rmSync(TMP, { recursive: true, force: true })
-
-    expect(output).toMatch(/unknown provider/i)
+    const { stderr, exitCode } = runCLI('auth foobar', { cwd: repo.dir })
+    expect(exitCode).toBe(1)
+    expect(stderr).toMatch(/unknown provider/i)
   })
 
-  it('auth status shows confluence', () => {
-    mkdirSync(TMP, { recursive: true })
-    writeFileSync(join(TMP, 'upstream.config.yaml'), 'version: 1\n')
-    process.env.UPSTREAM_TOKENS_PATH = join(TMP, 'tokens.json')
+  it('auth status exits 0 and lists all providers', () => {
+    const tokensPath = join(repo.dir, 'tokens.json')
+    const { stdout, exitCode } = runCLI('auth status', {
+      cwd: repo.dir,
+      env: { UPSTREAM_TOKENS_PATH: tokensPath },
+    })
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain('google-docs')
+    expect(stdout).toContain('confluence')
+  })
 
-    const output = execSync(`node ${CLI} auth status`, { cwd: TMP }).toString()
-    rmSync(TMP, { recursive: true, force: true })
-    delete process.env.UPSTREAM_TOKENS_PATH
+  it('auth status shows not authenticated when no token stored', () => {
+    const tokensPath = join(repo.dir, 'tokens.json')
+    const { stdout } = runCLI('auth status', {
+      cwd: repo.dir,
+      env: { UPSTREAM_TOKENS_PATH: tokensPath },
+    })
+    expect(stdout).toContain('not authenticated')
+  })
 
-    expect(output).toContain('confluence')
+  it('auth logout removes token for a specific provider', () => {
+    const tokensPath = join(repo.dir, 'tokens.json')
+    const fakeToken = { access_token: 'tok', refresh_token: null, expiry: null }
+    writeFileSync(tokensPath, JSON.stringify({ 'google-docs': fakeToken }))
+
+    const { exitCode } = runCLI('logout google-docs', {
+      cwd: repo.dir,
+      env: { UPSTREAM_TOKENS_PATH: tokensPath },
+    })
+
+    expect(exitCode).toBe(0)
+    const stored = JSON.parse(readFileSync(tokensPath, 'utf8'))
+    expect(stored['google-docs']).toBeUndefined()
+  })
+
+  it('auth logout all removes all provider tokens', () => {
+    const tokensPath = join(repo.dir, 'tokens.json')
+    const fakeToken = { access_token: 'tok', refresh_token: null, expiry: null }
+    writeFileSync(tokensPath, JSON.stringify({ 'google-docs': fakeToken, confluence: fakeToken }))
+
+    const { exitCode } = runCLI('logout all', {
+      cwd: repo.dir,
+      env: { UPSTREAM_TOKENS_PATH: tokensPath },
+    })
+
+    expect(exitCode).toBe(0)
+    const stored = JSON.parse(readFileSync(tokensPath, 'utf8'))
+    expect(Object.keys(stored)).toHaveLength(0)
+  })
+
+  it('auth logout unknown provider exits 1', () => {
+    const { exitCode, stderr } = runCLI('logout nope', { cwd: repo.dir })
+    expect(exitCode).toBe(1)
+    expect(stderr).toMatch(/unknown provider/i)
   })
 })
