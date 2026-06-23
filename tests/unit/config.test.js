@@ -32,4 +32,26 @@ docs_path: docs/my-upstream/
     writeFileSync(join(TMP, 'upstream.config.yaml'), '{ bad yaml: [unclosed')
     expect(() => readConfig(join(TMP, 'upstream.config.yaml'))).toThrow()
   })
+
+  it('includes align defaults', () => {
+    const cfg = readConfig(join(TMP, 'upstream.config.yaml'))
+    expect(cfg.align).toEqual({
+      on_violation: 'warn',
+      base_branch: 'auto',
+      post_pr_comment: true,
+    })
+  })
+
+  it('merges align section from file', () => {
+    writeFileSync(join(TMP, 'upstream.config.yaml'), `
+version: 1
+align:
+  on_violation: block
+  base_branch: develop
+`)
+    const cfg = readConfig(join(TMP, 'upstream.config.yaml'))
+    expect(cfg.align.on_violation).toBe('block')
+    expect(cfg.align.base_branch).toBe('develop')
+    expect(cfg.align.post_pr_comment).toBe(true)
+  })
 })
