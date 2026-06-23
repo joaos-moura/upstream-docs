@@ -9,6 +9,15 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const TARGET = '/tmp/upstream-test-scaffold'
 const FIXTURES = join(__dirname, '../fixtures/templates')
 
+const BASE_ANSWERS = {
+  docs_storage: 'local',
+  providers: [],
+  guardian: '',
+  bypass_for: ['fix/', 'hotfix/'],
+  prd_required_fields: ['problem_statement'],
+  adr_triggers: ['database_schema_change'],
+}
+
 beforeEach(() => { mkdirSync(TARGET, { recursive: true }) })
 afterEach(() => { rmSync(TARGET, { recursive: true, force: true }) })
 
@@ -43,6 +52,16 @@ describe('scaffoldInto', () => {
     const { statSync } = await import('fs')
     const mode = statSync(join(TARGET, '.claude/hooks/upstream-check.sh')).mode
     expect(mode & 0o111).toBeGreaterThan(0)
+  })
+
+  it('scaffolds upstream-align workflow when align enabled in answers', async () => {
+    await scaffoldInto(TARGET, FIXTURES, { ...BASE_ANSWERS, align: { on_violation: 'warn', base_branch: 'auto' } })
+    expect(existsSync(join(TARGET, '.github/workflows/upstream-align.yml'))).toBe(true)
+  })
+
+  it('does not scaffold workflow when align absent from answers', async () => {
+    await scaffoldInto(TARGET, FIXTURES, BASE_ANSWERS)
+    expect(existsSync(join(TARGET, '.github/workflows/upstream-align.yml'))).toBe(false)
   })
 })
 
