@@ -4,9 +4,26 @@ import { join } from 'path'
 import chalk from 'chalk'
 import { readConfig } from '../lib/config.js'
 import { getFeatureBranches, buildBranchEntry, parseSkips, computeStats } from '../lib/branch-stats.js'
+import { loadLatest } from '../lib/snapshots.js'
 
 function pct(n, total) {
   return total === 0 ? '—' : `${Math.round((n / total) * 100)}%`
+}
+
+function trendArrow(curr, prev) {
+  if (curr > prev) return '↑'
+  if (curr < prev) return '↓'
+  return '—'
+}
+
+function fmtDiffPct(diff) {
+  if (diff === 0) return 'no change'
+  return (diff > 0 ? '+' : '') + diff + '%'
+}
+
+function fmtDiffCount(diff) {
+  if (diff === 0) return 'no change'
+  return (diff > 0 ? '+' : '') + diff
 }
 
 function renderStats(stats) {
@@ -32,12 +49,39 @@ function renderStats(stats) {
   console.log('')
 }
 
-export function statsCommand(opts = {}, cwd = process.cwd()) {
-  const configPath = join(cwd, 'upstream.config.yaml')
-  if (!existsSync(configPath)) {
-    console.error(chalk.red('upstream stats: no upstream.config.yaml found'))
-    process.exit(1)
+function renderTrend(current, snapshot) {
+  const prev = snapshot.stats
+  const date = snapshot.saved_at.slice(0, 10)
+  const t = current.branches.total
+
+  const currPrdPct = t === 0 ? 0 : Math.round((current.branches.withPrd / t) * 100)
+  const prevPrdPct = prev.branches.total === 0 ? 0 : Math.round((prev.branches.withPrd / prev.branches.total) * 100)
+  const diffPrd = currPrdPct - prevPrdPct
+
+  console.log(chalk.bold(`\nupstream coverage trend  (vs ${date})`))
+  console.log('=========================================')
+  console.log(`Branches tracked: ${String(t).padStart(4)}`)
+  console.log(`PRD coverage:    ${String(currPrdPct + '%').padStart(4)}  ${trendArrow(currPrdPct, prevPrdPct)} from ${prevPrdPct}%  (${fmtDiffPct(diffPrd)})`)
+
+  if (current.adrCompliance.rate !== null || prev.adrCompliance.rate !== null) {
+    const currAdr = current.adrCompliance.rate !== null ? Math.round(current.adrCompliance.rate * 100) : 0
+    const prevAdr = prev.adrCompliance.rate !== null ? Math.round(prev.adrCompliance.rate * 100) : 0
+    const diffAdr = currAdr - prevAdr
+    console.log(`ADR compliance:  ${String(currAdr + '%').padStart(4)}  ${trendArrow(currAdr, prevAdr)} from ${prevAdr}%  (${fmtDiffPct(diffAdr)})`)
   }
+
+  const diffSkipped = current.branches.skipped - prev.branches.skipped
+  console.log(`Skipped:         ${String(current.branches.skipped).padStart(4)}  ${trendArrow(current.branches.skipped, prev.branches.skipped)} from ${prev.branches.skipped}  (${fmtDiffCount(diffSkipped)})`)
+
+  const diffUnlinked = current.unlinkedDocs - prev.unlinkedDocs
+  console.log(`Unlinked docs:   ${String(current.unlinkedDocs).padStart(4)}  ${trendArrow(current.unlinkedDocs, prev.unlinkedDocs)} from ${prev.unlinkedDocs}  (${fmtDiffCount(diffUnlinked)})`)
+
+  console.log('')
+}
+
+export function getCurrentStats(cwd) {
+  const configPath = join(cwd, 'upstream.config.yaml')
+  if (!existsSync(configPath)) return { error: 'no upstream.config.yaml found' }
 
   const config = readConfig(configPath)
   const docsPath = join(cwd, config.docs_path)
@@ -46,8 +90,7 @@ export function statsCommand(opts = {}, cwd = process.cwd()) {
   try {
     featureBranches = getFeatureBranches(cwd, config)
   } catch {
-    console.error(chalk.red('upstream stats: not a git repository'))
-    process.exit(1)
+    return { error: 'not a git repository' }
   }
 
   const entries = featureBranches.map(b =>
@@ -66,7 +109,27 @@ export function statsCommand(opts = {}, cwd = process.cwd()) {
   }
   const allMatched = new Set(entries.flatMap(e => e._matched))
 
-  const stats = computeStats(entries, skipEntries, allDocs, allMatched)
+  return { stats: computeStats(entries, skipEntries, allDocs, allMatched) }
+}
+
+export function statsCommand(opts = {}, cwd = process.cwd()) {
+  const result = getCurrentStats(cwd)
+  if (result.error) {
+    console.error(chalk.red(`upstream stats: ${result.error}`))
+    process.exit(1)
+  }
+
+  const { stats } = result
+
+  if (opts.trend) {
+    const snapshot = loadLatest(cwd)
+    if (!snapshot) {
+      console.error(chalk.red("upstream stats: no snapshots found, run 'upstream snapshot' first"))
+      process.exit(1)
+    }
+    renderTrend(stats, snapshot)
+    return
+  }
 
   if (opts.format === 'json') {
     console.log(JSON.stringify(stats, null, 2))

@@ -14,6 +14,7 @@ import { statusCommand } from '../src/commands/status.js'
 import { listCommand } from '../src/commands/list.js'
 import { validateCommand } from '../src/commands/validate.js'
 import { statsCommand } from '../src/commands/stats.js'
+import { snapshotCommand } from '../src/commands/snapshot.js'
 import { startMcpServer } from '../src/lib/mcp/server.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -81,7 +82,14 @@ program
   .command('stats')
   .description('Show PRD/ADR coverage summary across all feature branches')
   .option('--format <fmt>', 'output format: table or json', 'table')
+  .option('--trend', 'compare current stats against the latest snapshot')
   .action((opts) => statsCommand(opts))
+
+program
+  .command('snapshot')
+  .description('Save current PRD/ADR coverage stats as a local snapshot')
+  .option('--ci', 'exit non-zero if coverage regressed since last snapshot')
+  .action((opts) => snapshotCommand(opts))
 
 program
   .command('mcp')
