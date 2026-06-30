@@ -1,38 +1,9 @@
 // src/commands/list.js
 import { existsSync, readdirSync } from 'fs'
 import { join } from 'path'
-import { execFileSync } from 'child_process'
 import chalk from 'chalk'
 import { readConfig } from '../lib/config.js'
-import { getSlug, scanDocs, classifyFile, adrRequired } from '../lib/docs.js'
-
-function getLocalBranches() {
-  const out = execFileSync('git', ['branch', '--format=%(refname:short)'], {
-    encoding: 'utf8',
-    stdio: 'pipe',
-  })
-  return out.trim().split('\n').filter(Boolean)
-}
-
-function buildBranchEntry(branch, docsPath, configDocsPath, adrTriggers) {
-  const slug = getSlug(branch)
-  let matched = []
-  try { matched = scanDocs(docsPath, branch, slug) } catch { /* docs_path may not exist */ }
-
-  let prdFile = null
-  let adrFile = null
-  for (const f of matched) {
-    const type = classifyFile(join(docsPath, f))
-    if (type === 'prd' && !prdFile) prdFile = f
-    if (type === 'adr' && !adrFile) adrFile = f
-  }
-
-  const prdPath = prdFile ? join(configDocsPath, prdFile) : null
-  const adrPath = adrFile ? join(configDocsPath, adrFile) : null
-  const required = prdFile ? adrRequired(join(docsPath, prdFile), adrTriggers) : false
-
-  return { branch, prd: prdPath, adr: adrPath, adrRequired: required, _matched: matched }
-}
+import { getFeatureBranches, buildBranchEntry } from '../lib/branch-stats.js'
 
 function renderTable(entries, unlinked) {
   const COL = { branch: 24, prd: 30, adr: 30 }
@@ -83,17 +54,13 @@ export function listCommand(opts = {}, cwd = process.cwd()) {
   const config = readConfig(configPath)
   const docsPath = join(cwd, config.docs_path)
 
-  let branches
+  let featureBranches
   try {
-    branches = getLocalBranches()
+    featureBranches = getFeatureBranches(cwd, config)
   } catch {
     console.error(chalk.red('upstream list: not a git repository'))
     process.exit(1)
   }
-
-  const featureBranches = branches.filter(b =>
-    b !== 'HEAD' && !config.bypass_for.some(prefix => b.startsWith(prefix))
-  )
 
   const entries = featureBranches.map(b =>
     buildBranchEntry(b, docsPath, config.docs_path, config.adr_triggers)
