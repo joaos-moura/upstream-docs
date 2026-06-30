@@ -118,15 +118,15 @@ export async function validateCommand({ outputFormat = 'human', base = null, rep
     }
   }
 
-  const shouldBlock = config.align?.on_violation === 'block' && result.verdict === 'misaligned'
-  if (shouldBlock) process.exit(1)
-
   if (reportPath) {
     const { version } = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'))
     const resolvedPath = typeof reportPath === 'string' ? reportPath : 'upstream-report.json'
     const report = buildReport(result, { branch, cwd, version })
     writeReport(resolvedPath, report)
   }
+
+  const shouldBlock = config.align?.on_violation === 'block' && result.verdict === 'misaligned'
+  if (shouldBlock) process.exit(1)
 
   return result
 }
