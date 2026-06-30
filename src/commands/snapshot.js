@@ -1,6 +1,6 @@
 // src/commands/snapshot.js
 import { readFileSync } from 'fs'
-import { join, dirname } from 'path'
+import { join, dirname, relative } from 'path'
 import { fileURLToPath } from 'url'
 import chalk from 'chalk'
 import { getCurrentStats } from './stats.js'
@@ -23,7 +23,7 @@ export function snapshotCommand(opts = {}, cwd = process.cwd()) {
   }
 
   const filePath = saveSnapshot(cwd, result.stats, version)
-  const relPath = filePath.replace(cwd + '/', '').replace(cwd + '\\', '')
+  const relPath = relative(cwd, filePath)
   console.log(`Snapshot saved to ${relPath}`)
 
   if (opts.ci) {

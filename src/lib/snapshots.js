@@ -14,9 +14,10 @@ export function saveSnapshot(cwd, stats, version) {
     writeFileSync(gitignorePath, '*\n!.gitignore\n')
   }
 
-  const date = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const date = now.toISOString().slice(0, 10)
   const filePath = join(dir, `${date}.json`)
-  writeFileSync(filePath, JSON.stringify({ upstream_version: version, saved_at: new Date().toISOString(), stats }, null, 2))
+  writeFileSync(filePath, JSON.stringify({ upstream_version: version, saved_at: now.toISOString(), stats }, null, 2))
   return filePath
 }
 
