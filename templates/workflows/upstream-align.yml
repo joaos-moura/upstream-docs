@@ -23,9 +23,20 @@ jobs:
         run: npm install -g upstream-docs
 
       - name: Run alignment check
-        run: upstream validate --output json
+        run: upstream validate --report upstream-report.json --output json
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-report
+          path: upstream-report.json
+
+      - name: Write job summary
+        if: always()
+        run: upstream report summary --input upstream-report.json >> $GITHUB_STEP_SUMMARY
