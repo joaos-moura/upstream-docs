@@ -272,9 +272,71 @@ upstream validate --format json  # machine-readable (for CI scripts)
 
 Set `align.on_violation: block` in `upstream.config.yaml` to make `upstream validate` exit 1 on `misaligned`, blocking the CI pipeline.
 
+#### `--report [path]`
+
+Write a JSON report artifact to disk after the alignment check. Defaults to `upstream-report.json` in the current directory.
+
+```sh
+upstream validate --report              # writes upstream-report.json
+upstream validate --report ci-report.json  # writes to custom path
+```
+
+The artifact shape:
+
+```json
+{
+  "branch": "feat/user-auth",
+  "verdict": "aligned",
+  "engine": "llm",
+  "coverage": { "prdPath": "docs/upstream/PRD-user-auth.md", "adrPath": null },
+  "findings": [{ "dimension": "problem_statement", "status": "pass", "detail": null }],
+  "snapshot": { "timestamp": "2026-06-30T12:00:00Z", "upstream_version": "0.3.1" },
+  "trend": { "vsLast": null }
+}
+```
+
+`trend.vsLast` is populated automatically when a previous snapshot exists (see [`upstream snapshot`](#upstream-snapshot)).
+
 **PR comments:** when `GITHUB_TOKEN` and `GITHUB_REPOSITORY` are set (standard in GitHub Actions), upstream posts the verdict as a PR comment automatically. Set `align.post_pr_comment: false` to disable.
 
 **Link mode:** when `docs_storage: link`, `upstream validate` fetches the full document from the provider (Google Docs or Confluence) before analysis. If the provider is unavailable or unauthenticated, it falls back to stub content with a warning.
+
+---
+
+## upstream report
+
+### `upstream report summary [--input <path>]`
+
+Reads a report artifact and prints a Markdown summary to stdout. Reads `upstream-report.json` by default; use `--input` to specify a different path.
+
+```sh
+upstream report summary                          # reads upstream-report.json
+upstream report summary --input ci-report.json   # reads custom path
+upstream report summary >> $GITHUB_STEP_SUMMARY  # pipe to GitHub Actions job summary
+```
+
+### GitHub Actions integration
+
+```yaml
+- name: Run alignment check
+  run: upstream validate --report upstream-report.json --output json
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+    GITHUB_REPOSITORY: ${{ github.repository }}
+
+- name: Upload report
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: upstream-report
+    path: upstream-report.json
+
+- name: Write job summary
+  if: always()
+  run: upstream report summary --input upstream-report.json >> $GITHUB_STEP_SUMMARY
+```
 
 ---
 

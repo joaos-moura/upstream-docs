@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `upstream validate --report [path]` — writes a structured JSON artifact to disk after alignment check (default filename: `upstream-report.json`); shape includes `branch`, `verdict`, `engine`, `coverage`, `findings`, `snapshot`, and `trend` fields
+- `upstream report summary [--input <path>]` — reads the report artifact and prints a Markdown summary to stdout; suitable for piping to `$GITHUB_STEP_SUMMARY` in GitHub Actions
+- Automatic trend computation in reports — when a snapshot exists (from `upstream snapshot`), the report includes PRD coverage and ADR compliance deltas vs the previous snapshot
+- Updated `upstream-align.yml` workflow template to upload the report as a build artifact and write a job summary via `$GITHUB_STEP_SUMMARY`
+
 ## [0.3.1] - 2026-06-23
 
 ### Fixed

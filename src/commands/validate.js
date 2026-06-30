@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'fs'
-import { join } from 'path'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { spawnSync } from 'child_process'
 import chalk from 'chalk'
 import { readConfig } from '../lib/config.js'
@@ -9,6 +10,9 @@ import { runHeuristics } from '../lib/align/heuristics.js'
 import { buildAnalysisPrompt, parseAnalysisResponse } from '../lib/align/prompt.js'
 import { formatComment, postPrComment } from '../lib/align/github.js'
 import { fetchDocContent } from '../lib/align/fetch-doc.js'
+import { buildReport, writeReport } from '../lib/report.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 function tryClaudeAnalysis(prdContent, adrContent, diff) {
   const prompt = buildAnalysisPrompt(prdContent, adrContent, diff)
@@ -21,7 +25,7 @@ function tryClaudeAnalysis(prdContent, adrContent, diff) {
   return parseAnalysisResponse(result.stdout ?? '')
 }
 
-export async function validateCommand({ outputFormat = 'human', base = null } = {}, cwd = process.cwd()) {
+export async function validateCommand({ outputFormat = 'human', base = null, reportPath = null } = {}, cwd = process.cwd()) {
   let branch
   try {
     branch = getCurrentBranch()
@@ -112,6 +116,13 @@ export async function validateCommand({ outputFormat = 'human', base = null } = 
     } catch (err) {
       console.warn(`upstream validate: PR comment failed — ${err.message}`)
     }
+  }
+
+  if (reportPath) {
+    const { version } = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'))
+    const resolvedPath = typeof reportPath === 'string' ? reportPath : 'upstream-report.json'
+    const report = buildReport(result, { branch, cwd, version })
+    writeReport(resolvedPath, report)
   }
 
   const shouldBlock = config.align?.on_violation === 'block' && result.verdict === 'misaligned'
