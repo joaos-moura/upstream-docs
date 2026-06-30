@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { writeFileSync } from 'fs'
+import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { makeTmpRepo, runCLI } from '../helpers.js'
 
@@ -128,5 +128,53 @@ describe('upstream stats', () => {
     expect(typeof data.adrCompliance.rate).toBe('number')
     expect(data.adrCompliance.required).toBe(1)
     expect(data.adrCompliance.present).toBe(0)
+  })
+})
+
+describe('upstream stats --trend', () => {
+  it('exits 1 with message when no snapshots exist', () => {
+    const { exitCode, stderr } = runCLI('stats --trend', { cwd: repo.dir })
+    expect(exitCode).toBe(1)
+    expect(stderr).toMatch(/no snapshots found/)
+  })
+
+  it('shows trend output when a snapshot exists', () => {
+    const snapDir = join(repo.dir, '.upstream', 'snapshots')
+    mkdirSync(snapDir, { recursive: true })
+    writeFileSync(join(snapDir, '2026-01-01.json'), JSON.stringify({
+      upstream_version: '0.3.1',
+      saved_at: '2026-01-01T00:00:00.000Z',
+      stats: {
+        branches: { total: 0, withPrd: 0, withAdr: 0, skipped: 0, skippedPrd: 0, skippedAdr: 0, noDocs: 0 },
+        adrCompliance: { required: 0, present: 0, rate: null },
+        unlinkedDocs: 0,
+      },
+    }))
+    writeFileSync(join(snapDir, '.gitignore'), '*\n!.gitignore\n')
+    const { exitCode, stdout } = runCLI('stats --trend', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
+    expect(stdout).toMatch(/upstream coverage trend/)
+    expect(stdout).toMatch(/vs 2026-01-01/)
+  })
+
+  it('shows trend arrow when PRD coverage improved', () => {
+    const snapDir = join(repo.dir, '.upstream', 'snapshots')
+    mkdirSync(snapDir, { recursive: true })
+    writeFileSync(join(snapDir, '2026-01-01.json'), JSON.stringify({
+      upstream_version: '0.3.1',
+      saved_at: '2026-01-01T00:00:00.000Z',
+      stats: {
+        branches: { total: 2, withPrd: 0, withAdr: 0, skipped: 0, skippedPrd: 0, skippedAdr: 0, noDocs: 2 },
+        adrCompliance: { required: 0, present: 0, rate: null },
+        unlinkedDocs: 0,
+      },
+    }))
+    writeFileSync(join(snapDir, '.gitignore'), '*\n!.gitignore\n')
+    repo.git('checkout', '-b', 'feat/auth')
+    repo.git('checkout', '-')
+    writeFileSync(join(repo.dir, 'docs/upstream/PRD-auth.md'), '# PRD: Auth\n\ncontent')
+    const { exitCode, stdout } = runCLI('stats --trend', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
+    expect(stdout).toMatch(/↑/)
   })
 })

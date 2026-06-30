@@ -81,6 +81,7 @@ program
   .command('stats')
   .description('Show PRD/ADR coverage summary across all feature branches')
   .option('--format <fmt>', 'output format: table or json', 'table')
+  .option('--trend', 'compare current stats against the latest snapshot')
   .action((opts) => statsCommand(opts))
 
 program
