@@ -15,11 +15,20 @@ describe('upstream stats', () => {
   })
 
   it('shows 0 branches tracked when no feature branches', () => {
+    // Make main/master bypass upstream so the count is 0
+    writeFileSync(join(repo.dir, 'upstream.config.yaml'), [
+      'version: 1',
+      'bypass_for: ["fix/", "hotfix/", "chore/", "docs/", "main", "master"]',
+    ].join('\n'))
     const { stdout } = runCLI('stats', { cwd: repo.dir })
     expect(stdout).toMatch(/Branches tracked.*0/)
   })
 
   it('counts branch with PRD in withPrd', () => {
+    writeFileSync(join(repo.dir, 'upstream.config.yaml'), [
+      'version: 1',
+      'bypass_for: ["fix/", "hotfix/", "chore/", "docs/", "main", "master"]',
+    ].join('\n'))
     repo.git('checkout', '-b', 'feat/search')
     repo.git('checkout', '-')
     writeFileSync(join(repo.dir, 'docs/upstream/PRD-search.md'), '# PRD: Search\n\ncontent')
@@ -30,6 +39,10 @@ describe('upstream stats', () => {
   })
 
   it('counts branch without docs in noDocs', () => {
+    writeFileSync(join(repo.dir, 'upstream.config.yaml'), [
+      'version: 1',
+      'bypass_for: ["fix/", "hotfix/", "chore/", "docs/", "main", "master"]',
+    ].join('\n'))
     repo.git('checkout', '-b', 'feat/empty')
     repo.git('checkout', '-')
     const { stdout } = runCLI('stats --format json', { cwd: repo.dir })
@@ -39,6 +52,10 @@ describe('upstream stats', () => {
   })
 
   it('counts SKIPS.md entries in skipped, not noDocs', () => {
+    writeFileSync(join(repo.dir, 'upstream.config.yaml'), [
+      'version: 1',
+      'bypass_for: ["fix/", "hotfix/", "chore/", "docs/", "main", "master"]',
+    ].join('\n'))
     repo.git('checkout', '-b', 'feat/skipped')
     repo.git('checkout', '-')
     writeFileSync(
@@ -52,6 +69,10 @@ describe('upstream stats', () => {
   })
 
   it('counts PRD+ADR skip entries for same branch as skipped: 2', () => {
+    writeFileSync(join(repo.dir, 'upstream.config.yaml'), [
+      'version: 1',
+      'bypass_for: ["fix/", "hotfix/", "chore/", "docs/", "main", "master"]',
+    ].join('\n'))
     repo.git('checkout', '-b', 'feat/both-skipped')
     repo.git('checkout', '-')
     const skipsContent = [
