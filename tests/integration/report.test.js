@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { writeFileSync } from 'fs'
+import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { makeTmpRepo, runCLI } from '../helpers.js'
 
@@ -68,5 +68,41 @@ describe('upstream report summary', () => {
     expect(exitCode).toBe(0)
     expect(stdout).toContain('Trend vs last snapshot')
     expect(stdout).toContain('+25%')
+  })
+})
+
+describe('upstream validate --report', () => {
+  it('does not create report file when no PRD found (skip case)', () => {
+    runCLI('validate --report', { cwd: repo.dir })
+    expect(existsSync(join(repo.dir, 'upstream-report.json'))).toBe(false)
+  })
+
+  it('creates report at default path when --report used without value', () => {
+    repo.git('checkout', '-b', 'feat/ci-test')
+    mkdirSync(join(repo.dir, 'docs', 'upstream'), { recursive: true })
+    writeFileSync(
+      join(repo.dir, 'docs', 'upstream', 'PRD-ci-test.md'),
+      '## Problem Statement\nTest CI\n## Success Metrics\n- ships\n## Out of Scope\n- nothing\n'
+    )
+    const { exitCode } = runCLI('validate --report', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
+    expect(existsSync(join(repo.dir, 'upstream-report.json'))).toBe(true)
+    const report = JSON.parse(readFileSync(join(repo.dir, 'upstream-report.json'), 'utf8'))
+    expect(report.branch).toBe('feat/ci-test')
+    expect(report.verdict).toBeDefined()
+    expect(report.findings).toBeDefined()
+    expect(report.snapshot.upstream_version).toBeDefined()
+  })
+
+  it('creates report at custom path when path specified', () => {
+    repo.git('checkout', '-b', 'feat/ci-test')
+    mkdirSync(join(repo.dir, 'docs', 'upstream'), { recursive: true })
+    writeFileSync(
+      join(repo.dir, 'docs', 'upstream', 'PRD-ci-test.md'),
+      '## Problem Statement\nTest CI\n## Success Metrics\n- ships\n## Out of Scope\n- nothing\n'
+    )
+    const { exitCode } = runCLI(['validate', '--report', 'ci-report.json'], { cwd: repo.dir })
+    expect(exitCode).toBe(0)
+    expect(existsSync(join(repo.dir, 'ci-report.json'))).toBe(true)
   })
 })

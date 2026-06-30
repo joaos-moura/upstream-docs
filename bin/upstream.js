@@ -77,7 +77,8 @@ program
   .description('Check alignment between implementation and PRD/ADR')
   .option('--output <format>', 'output format: human or json', 'human')
   .option('--base <branch>', 'base branch for diff (overrides config)')
-  .action((opts) => validateCommand({ outputFormat: opts.output, base: opts.base ?? null }))
+  .option('--report [path]', 'write JSON report artifact (default: upstream-report.json)')
+  .action((opts) => validateCommand({ outputFormat: opts.output, base: opts.base ?? null, reportPath: opts.report ?? null }))
 
 program
   .command('stats')
