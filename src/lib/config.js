@@ -3,7 +3,7 @@ import yaml from 'js-yaml'
 
 export const DEFAULT_CONFIG = {
   version: 1,
-  bypass_for: ['fix/', 'hotfix/', 'chore/', 'docs/'],
+  bypass_for: ['fix/', 'hotfix/', 'chore/', 'docs/', 'main', 'master'],
   prd_required_fields: ['problem_statement', 'success_metrics', 'out_of_scope'],
   adr_triggers: [
     'new_external_dependency',
