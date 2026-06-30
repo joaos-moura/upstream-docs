@@ -46,6 +46,8 @@ describe('computeStats', () => {
     expect(result.branches.withPrd).toBe(0)
     expect(result.branches.withAdr).toBe(0)
     expect(result.branches.skipped).toBe(0)
+    expect(result.branches.skippedPrd).toBe(0)
+    expect(result.branches.skippedAdr).toBe(0)
     expect(result.branches.noDocs).toBe(0)
     expect(result.adrCompliance.rate).toBeNull()
     expect(result.unlinkedDocs).toBe(0)
@@ -80,7 +82,7 @@ describe('computeStats', () => {
     expect(result.branches.noDocs).toBe(0)
   })
 
-  it('same branch PRD+ADR skip → skipped: 2', () => {
+  it('same branch PRD+ADR skip → skipped: 1 unique branch, entries: prdSkips=1 adrSkips=1', () => {
     const entries = [
       { branch: 'feat/d', prd: null, adr: null, adrRequired: false, _matched: [] },
     ]
@@ -89,7 +91,24 @@ describe('computeStats', () => {
       { type: 'adr', branch: 'feat/d', date: '2026-06-01', reason: 'b' },
     ]
     const result = computeStats(entries, skips, [], new Set())
-    expect(result.branches.skipped).toBe(2)
+    expect(result.branches.skipped).toBe(1)
+    expect(result.branches.skippedPrd).toBe(1)
+    expect(result.branches.skippedAdr).toBe(1)
+    expect(result.branches.noDocs).toBe(0)
+  })
+
+  it('branch with PRD + ADR skip entries → skipped: 1 unique branch, skippedPrd: 1, skippedAdr: 1, noDocs: 0', () => {
+    const entries = [
+      { branch: 'feat/e', prd: null, adr: null, adrRequired: false, _matched: [] },
+    ]
+    const skips = [
+      { type: 'prd', branch: 'feat/e', date: '2026-06-01', reason: 'a' },
+      { type: 'adr', branch: 'feat/e', date: '2026-06-01', reason: 'b' },
+    ]
+    const result = computeStats(entries, skips, [], new Set())
+    expect(result.branches.skipped).toBe(1)
+    expect(result.branches.skippedPrd).toBe(1)
+    expect(result.branches.skippedAdr).toBe(1)
     expect(result.branches.noDocs).toBe(0)
   })
 

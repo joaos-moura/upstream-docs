@@ -19,6 +19,8 @@ function renderStats(stats) {
   console.log(`  With PRD:        ${String(branches.withPrd).padStart(3)}  (${pct(branches.withPrd, t)})`)
   console.log(`  With ADR:        ${String(branches.withAdr).padStart(3)}  (${pct(branches.withAdr, t)})`)
   console.log(`  Skipped:         ${String(branches.skipped).padStart(3)}  (${pct(branches.skipped, t)})`)
+  console.log(`    PRD skips:     ${String(branches.skippedPrd).padStart(3)}`)
+  console.log(`    ADR skips:     ${String(branches.skippedAdr).padStart(3)}`)
   console.log(`  No docs:         ${String(branches.noDocs).padStart(3)}  (${pct(branches.noDocs, t)})`)
 
   if (adrCompliance.rate !== null) {

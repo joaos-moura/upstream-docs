@@ -70,12 +70,14 @@ export function computeStats(entries, skipEntries, allDocs, allMatched) {
     }
   }
 
-  const skipped = skipEntries.length
+  const skipped = skippedBranches.size
+  const skippedPrd = skipEntries.filter(e => e.type === 'prd').length
+  const skippedAdr = skipEntries.filter(e => e.type === 'adr').length
   const noDocs = entries.filter(e => !e.prd && !e.adr && !skippedBranches.has(e.branch)).length
   const unlinkedDocs = allDocs.filter(f => !allMatched.has(f)).length
 
   return {
-    branches: { total, withPrd, withAdr, skipped, noDocs },
+    branches: { total, withPrd, withAdr, skipped, skippedPrd, skippedAdr, noDocs },
     adrCompliance: {
       required: adrRequiredCount,
       present: adrPresentCount,

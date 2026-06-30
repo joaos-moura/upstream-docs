@@ -63,14 +63,14 @@ export function listCommand(opts = {}, cwd = process.cwd()) {
   }
 
   const entries = featureBranches.map(b =>
-    buildBranchEntry(b, docsPath, config.docs_path, config.adr_triggers)
+    buildBranchEntry(b, docsPath, config.docs_path, config.adr_triggers ?? [])
   )
 
   const allMatched = new Set(entries.flatMap(e => e._matched))
 
   let allDocs = []
   if (existsSync(docsPath)) {
-    allDocs = readdirSync(docsPath).filter(f => f.endsWith('.md'))
+    allDocs = readdirSync(docsPath).filter(f => f.endsWith('.md') && f !== 'SKIPS.md')
   }
   const unlinked = allDocs
     .filter(f => !allMatched.has(f))

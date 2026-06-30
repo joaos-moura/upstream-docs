@@ -68,7 +68,7 @@ describe('upstream stats', () => {
     expect(data.branches.noDocs).toBe(0)
   })
 
-  it('counts PRD+ADR skip entries for same branch as skipped: 2', () => {
+  it('counts PRD+ADR skip entries for same branch as skipped: 1 unique, prd+adr sub-counts: 1 each', () => {
     writeFileSync(join(repo.dir, 'upstream.config.yaml'), [
       'version: 1',
       'bypass_for: ["fix/", "hotfix/", "chore/", "docs/", "main", "master"]',
@@ -82,7 +82,9 @@ describe('upstream stats', () => {
     writeFileSync(join(repo.dir, 'docs/upstream/SKIPS.md'), skipsContent)
     const { stdout } = runCLI('stats --format json', { cwd: repo.dir })
     const data = JSON.parse(stdout)
-    expect(data.branches.skipped).toBe(2)
+    expect(data.branches.skipped).toBe(1)
+    expect(data.branches.skippedPrd).toBe(1)
+    expect(data.branches.skippedAdr).toBe(1)
     expect(data.branches.noDocs).toBe(0)
   })
 
@@ -97,6 +99,8 @@ describe('upstream stats', () => {
     expect(data.branches).toHaveProperty('withPrd')
     expect(data.branches).toHaveProperty('withAdr')
     expect(data.branches).toHaveProperty('skipped')
+    expect(data.branches).toHaveProperty('skippedPrd')
+    expect(data.branches).toHaveProperty('skippedAdr')
     expect(data.branches).toHaveProperty('noDocs')
     expect(data.adrCompliance).toHaveProperty('required')
     expect(data.adrCompliance).toHaveProperty('present')
