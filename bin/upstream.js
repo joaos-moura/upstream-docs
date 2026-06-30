@@ -13,6 +13,7 @@ import { doctorCommand } from '../src/commands/doctor.js'
 import { statusCommand } from '../src/commands/status.js'
 import { listCommand } from '../src/commands/list.js'
 import { validateCommand } from '../src/commands/validate.js'
+import { statsCommand } from '../src/commands/stats.js'
 import { startMcpServer } from '../src/lib/mcp/server.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -75,6 +76,12 @@ program
   .option('--output <format>', 'output format: human or json', 'human')
   .option('--base <branch>', 'base branch for diff (overrides config)')
   .action((opts) => validateCommand({ outputFormat: opts.output, base: opts.base ?? null }))
+
+program
+  .command('stats')
+  .description('Show PRD/ADR coverage summary across all feature branches')
+  .option('--format <fmt>', 'output format: table or json', 'table')
+  .action((opts) => statsCommand(opts))
 
 program
   .command('mcp')
