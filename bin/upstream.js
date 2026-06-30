@@ -15,6 +15,7 @@ import { listCommand } from '../src/commands/list.js'
 import { validateCommand } from '../src/commands/validate.js'
 import { statsCommand } from '../src/commands/stats.js'
 import { snapshotCommand } from '../src/commands/snapshot.js'
+import { reportCommand } from '../src/commands/report.js'
 import { startMcpServer } from '../src/lib/mcp/server.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -90,6 +91,12 @@ program
   .description('Save current PRD/ADR coverage stats as a local snapshot')
   .option('--ci', 'exit non-zero if coverage regressed since last snapshot')
   .action((opts) => snapshotCommand(opts))
+
+program
+  .command('report <subcommand>')
+  .description('Generate reports from upstream artifacts (subcommands: summary)')
+  .option('--input <path>', 'report file to read (default: upstream-report.json)')
+  .action((sub, opts) => reportCommand(sub, opts))
 
 program
   .command('mcp')
