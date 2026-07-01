@@ -5,6 +5,7 @@ import chalk from 'chalk'
 import { readConfig } from '../lib/config.js'
 import { getFeatureBranches, buildBranchEntry, parseSkips, computeStats } from '../lib/branch-stats.js'
 import { loadLatest } from '../lib/snapshots.js'
+import { getAuthorMap, computeAdoption } from '../lib/adoption.js'
 
 function pct(n, total) {
   return total === 0 ? '—' : `${Math.round((n / total) * 100)}%`
@@ -24,6 +25,52 @@ function fmtDiffPct(diff) {
 function fmtDiffCount(diff) {
   if (diff === 0) return 'no change'
   return (diff > 0 ? '+' : '') + diff
+}
+
+function defaultSince() {
+  const d = new Date()
+  d.setDate(d.getDate() - 90)
+  return d.toISOString().slice(0, 10)
+}
+
+function renderAdoption(data, noAuthors) {
+  const { authors, skips, adoptionScore, since } = data
+  const period = since ? `since ${since}` : 'last 90 days'
+
+  console.log(chalk.bold('\nupstream adoption report'))
+  console.log('========================')
+
+  if (!noAuthors) {
+    console.log(`Authors (${period}):`)
+    if (authors.length === 0) {
+      console.log('  (none)')
+    } else {
+      const nameWidth = authors.reduce((m, a) => Math.max(m, a.name.length), 6)
+      for (const a of [...authors].sort((x, y) => x.name.localeCompare(y.name))) {
+        const prdPct = a.branches > 0 ? Math.round((a.withPrd / a.branches) * 100) : 0
+        const adrPct = a.branches > 0 ? Math.round((a.withAdr / a.branches) * 100) : 0
+        console.log(
+          `  ${a.name.padEnd(nameWidth)}` +
+          `   branches: ${String(a.branches).padStart(2)}` +
+          `   PRD: ${String(a.withPrd).padStart(2)} (${String(prdPct + '%').padStart(4)})` +
+          `   ADR: ${String(a.withAdr).padStart(2)} (${String(adrPct + '%').padStart(4)})` +
+          `   skips: ${a.skips}`
+        )
+      }
+    }
+  }
+
+  console.log(`\nSkip log (${period}):  ${skips.length} skip${skips.length !== 1 ? 's' : ''}`)
+  if (skips.length > 0) {
+    const authorWidth = noAuthors ? 0 : skips.reduce((m, s) => Math.max(m, s.author.length), 6)
+    for (const s of skips) {
+      const authorPart = noAuthors ? '' : `${s.author.padEnd(authorWidth)}   `
+      console.log(`  ${authorPart}${s.branch.padEnd(30)}   ${s.date}   "${s.reason}"`)
+    }
+  }
+
+  console.log(`\nAdoption score: ${adoptionScore}%  (PRD coverage weighted by branch author)`)
+  console.log('')
 }
 
 function renderStats(stats) {
@@ -112,7 +159,53 @@ export function getCurrentStats(cwd) {
   return { stats: computeStats(entries, skipEntries, allDocs, allMatched) }
 }
 
+export function getAdoptionData(cwd, userSince) {
+  const configPath = join(cwd, 'upstream.config.yaml')
+  if (!existsSync(configPath)) return { error: 'no upstream.config.yaml found' }
+
+  const config = readConfig(configPath)
+  const docsPath = join(cwd, config.docs_path)
+
+  let featureBranches
+  try {
+    featureBranches = getFeatureBranches(cwd, config)
+  } catch {
+    return { error: 'not a git repository' }
+  }
+
+  const entries = featureBranches.map(b =>
+    buildBranchEntry(b, docsPath, config.docs_path, config.adr_triggers ?? [])
+  )
+
+  let skipEntries = []
+  const skipsPath = join(docsPath, 'SKIPS.md')
+  if (existsSync(skipsPath)) {
+    try { skipEntries = parseSkips(readFileSync(skipsPath, 'utf8')) } catch {}
+  }
+
+  const since = userSince ?? defaultSince()
+  const authorMap = getAuthorMap(cwd, featureBranches, since)
+  const adoption = computeAdoption(entries, skipEntries, authorMap, since)
+  adoption.since = userSince ?? null
+
+  return { adoption }
+}
+
 export function statsCommand(opts = {}, cwd = process.cwd()) {
+  if (opts.adoption) {
+    const result = getAdoptionData(cwd, opts.since ?? null)
+    if (result.error) {
+      console.error(chalk.red(`upstream stats: ${result.error}`))
+      process.exit(1)
+    }
+    if (opts.format === 'json') {
+      console.log(JSON.stringify(result.adoption, null, 2))
+      return
+    }
+    renderAdoption(result.adoption, !opts.authors)
+    return
+  }
+
   const result = getCurrentStats(cwd)
   if (result.error) {
     console.error(chalk.red(`upstream stats: ${result.error}`))

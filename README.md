@@ -87,6 +87,14 @@ Your team gets the plugin on their next `git pull`. No global install required o
 | `upstream validate` | Check whether the current branch diff is aligned with its PRD/ADR |
 | `upstream validate --format json` | Machine-readable alignment result (`{ verdict, engine, findings }`) |
 | `upstream validate --base <branch>` | Override the base branch used for diff |
+| `upstream stats` | Show PRD/ADR coverage summary across all feature branches |
+| `upstream stats --format json` | Machine-readable stats output |
+| `upstream stats --trend` | Compare current coverage against the latest snapshot |
+| `upstream stats --adoption` | Team adoption analytics — per-author coverage, skip log, and adoption score |
+| `upstream stats --adoption --since <date>` | Scope adoption lookback window (default: 90 days, `YYYY-MM-DD`) |
+| `upstream stats --adoption --no-authors` | Show skip log and adoption score without per-author table |
+| `upstream snapshot` | Save current coverage stats as a local snapshot |
+| `upstream snapshot --ci` | Exit non-zero if coverage regressed since last snapshot |
 | `upstream mcp` | Start the upstream MCP server (called automatically by Claude Code) |
 
 ### `upstream init` flags
@@ -336,6 +344,63 @@ upstream report summary >> $GITHUB_STEP_SUMMARY  # pipe to GitHub Actions job su
 - name: Write job summary
   if: always()
   run: upstream report summary --input upstream-report.json >> $GITHUB_STEP_SUMMARY
+```
+
+---
+
+## Coverage stats — `upstream stats`
+
+`upstream stats` shows a coverage summary across all local feature branches: how many have PRDs, ADRs, skips, or no docs at all.
+
+```bash
+upstream stats               # human-readable table
+upstream stats --format json # machine-readable
+upstream stats --trend       # compare against last snapshot
+```
+
+### `--adoption` — team adoption analytics
+
+`--adoption` adds a per-author breakdown: which branches each author owns, their PRD/ADR coverage percentages, how many skips they've logged, and an overall adoption score.
+
+```bash
+upstream stats --adoption
+upstream stats --adoption --since 2026-04-01   # scope to a specific date window
+upstream stats --adoption --no-authors          # skip log + score only, no per-author table
+upstream stats --adoption --format json         # machine-readable for CI/dashboards
+```
+
+Example output:
+
+```
+upstream adoption report
+========================
+Authors (last 90 days):
+  alice    branches:  5   PRD:  5 (100%)   ADR:  3 ( 60%)   skips: 0
+  bob      branches:  4   PRD:  2 ( 50%)   ADR:  1 ( 25%)   skips: 2
+  carol    branches:  3   PRD:  3 (100%)   ADR:  2 ( 67%)   skips: 0
+
+Skip log (last 90 days):  2 skips
+  bob    feat/quick-fix   2026-06-10   "hotfix, no PRD needed"
+  bob    feat/typo        2026-06-15   "one-liner, low risk"
+
+Adoption score: 83%  (PRD coverage weighted by branch author)
+```
+
+**Flags:**
+- `--since <date>` — scope the report to branches and skips with activity after the given date (`YYYY-MM-DD`); defaults to 90 days ago
+- `--no-authors` — suppress per-author table; shows only the skip log and adoption score
+- `--format json` — emit the raw `{ authors, skips, adoptionScore, since }` object for CI or dashboards
+
+All data is derived from local git history and `SKIPS.md` — no network calls.
+
+### `upstream snapshot`
+
+Save the current stats as a local snapshot for trend comparison:
+
+```bash
+upstream snapshot         # save snapshot
+upstream snapshot --ci    # exit 1 if coverage regressed vs last snapshot
+upstream stats --trend    # compare current stats against the saved snapshot
 ```
 
 ---

@@ -85,6 +85,9 @@ program
   .description('Show PRD/ADR coverage summary across all feature branches')
   .option('--format <fmt>', 'output format: table or json', 'table')
   .option('--trend', 'compare current stats against the latest snapshot')
+  .option('--adoption', 'show team adoption analytics — skip analysis and author-level coverage')
+  .option('--since <date>', 'scope adoption lookback window (default: 90 days ago, YYYY-MM-DD)')
+  .option('--no-authors', 'suppress per-author table, show only aggregate totals')
   .action((opts) => statsCommand(opts))
 
 program

@@ -3,6 +3,7 @@ import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { makeTmpRepo, runCLI } from '../helpers.js'
 
+
 let repo
 
 beforeEach(() => { repo = makeTmpRepo({ init: true }) })
@@ -176,5 +177,50 @@ describe('upstream stats --trend', () => {
     const { exitCode, stdout } = runCLI('stats --trend', { cwd: repo.dir })
     expect(exitCode).toBe(0)
     expect(stdout).toMatch(/↑/)
+  })
+})
+
+describe('upstream stats --adoption', () => {
+  it('exits 0 and shows adoption report header', () => {
+    const { exitCode, stdout } = runCLI('stats --adoption', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
+    expect(stdout).toMatch(/upstream adoption report/)
+  })
+
+  it('--format json returns object with authors, skips, adoptionScore, since', () => {
+    const { stdout, exitCode } = runCLI('stats --adoption --format json', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
+    const data = JSON.parse(stdout)
+    expect(Array.isArray(data.authors)).toBe(true)
+    expect(Array.isArray(data.skips)).toBe(true)
+    expect(typeof data.adoptionScore).toBe('number')
+    expect(data).toHaveProperty('since')
+  })
+
+  it('--no-authors suppresses author table but shows skip log and adoption score', () => {
+    const { stdout, exitCode } = runCLI('stats --adoption --no-authors', { cwd: repo.dir })
+    expect(exitCode).toBe(0)
+    expect(stdout).not.toMatch(/Authors \(/)
+    expect(stdout).toMatch(/Skip log/)
+    expect(stdout).toMatch(/Adoption score/)
+  })
+
+  it('--since filters out skip entries older than the given date', () => {
+    writeFileSync(join(repo.dir, 'upstream.config.yaml'), [
+      'version: 1',
+      'bypass_for: ["fix/", "hotfix/", "chore/", "docs/", "main", "master"]',
+    ].join('\n'))
+    repo.git('checkout', '-b', 'feat/alpha')
+    repo.git('checkout', '-')
+    writeFileSync(
+      join(repo.dir, 'docs/upstream/SKIPS.md'),
+      [
+        '## Skip: PRD — feat/alpha — 2026-01-01\n\n**Reason:** old skip',
+        '## Skip: PRD — feat/alpha — 2026-06-15\n\n**Reason:** recent skip',
+      ].join('\n\n')
+    )
+    const { stdout } = runCLI('stats --adoption --since 2026-04-01', { cwd: repo.dir })
+    expect(stdout).not.toMatch(/old skip/)
+    expect(stdout).toMatch(/recent skip/)
   })
 })
