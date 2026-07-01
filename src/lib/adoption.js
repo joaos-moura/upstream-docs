@@ -22,7 +22,7 @@ export function getAuthorMap(cwd, branches, since) {
     const refs = line.slice(pipeIdx + 1)
     if (!refs.trim()) continue
     for (const ref of refs.split(',').map(r => r.trim())) {
-      const clean = ref.replace(/^HEAD -> /, '')
+      const clean = ref.replace(/^HEAD -> /, '').replace(/^origin\//, '')
       if (branchSet.has(clean) && !authorMap.has(clean)) {
         authorMap.set(clean, author)
       }

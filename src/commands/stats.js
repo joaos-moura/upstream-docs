@@ -45,7 +45,7 @@ function renderAdoption(data, noAuthors) {
     if (authors.length === 0) {
       console.log('  (none)')
     } else {
-      const nameWidth = Math.max(...authors.map(a => a.name.length), 6)
+      const nameWidth = authors.reduce((m, a) => Math.max(m, a.name.length), 6)
       for (const a of [...authors].sort((x, y) => x.name.localeCompare(y.name))) {
         const prdPct = a.branches > 0 ? Math.round((a.withPrd / a.branches) * 100) : 0
         const adrPct = a.branches > 0 ? Math.round((a.withAdr / a.branches) * 100) : 0
@@ -62,7 +62,7 @@ function renderAdoption(data, noAuthors) {
 
   console.log(`\nSkip log (${period}):  ${skips.length} skip${skips.length !== 1 ? 's' : ''}`)
   if (skips.length > 0) {
-    const authorWidth = noAuthors ? 0 : Math.max(...skips.map(s => s.author.length), 6)
+    const authorWidth = noAuthors ? 0 : skips.reduce((m, s) => Math.max(m, s.author.length), 6)
     for (const s of skips) {
       const authorPart = noAuthors ? '' : `${s.author.padEnd(authorWidth)}   `
       console.log(`  ${authorPart}${s.branch.padEnd(30)}   ${s.date}   "${s.reason}"`)
@@ -159,7 +159,7 @@ export function getCurrentStats(cwd) {
   return { stats: computeStats(entries, skipEntries, allDocs, allMatched) }
 }
 
-export function getAdoptionData(cwd, since) {
+export function getAdoptionData(cwd, userSince) {
   const configPath = join(cwd, 'upstream.config.yaml')
   if (!existsSync(configPath)) return { error: 'no upstream.config.yaml found' }
 
@@ -183,16 +183,17 @@ export function getAdoptionData(cwd, since) {
     try { skipEntries = parseSkips(readFileSync(skipsPath, 'utf8')) } catch {}
   }
 
+  const since = userSince ?? defaultSince()
   const authorMap = getAuthorMap(cwd, featureBranches, since)
   const adoption = computeAdoption(entries, skipEntries, authorMap, since)
+  adoption.since = userSince ?? null
 
   return { adoption }
 }
 
 export function statsCommand(opts = {}, cwd = process.cwd()) {
   if (opts.adoption) {
-    const since = opts.since ?? defaultSince()
-    const result = getAdoptionData(cwd, since)
+    const result = getAdoptionData(cwd, opts.since ?? null)
     if (result.error) {
       console.error(chalk.red(`upstream stats: ${result.error}`))
       process.exit(1)
