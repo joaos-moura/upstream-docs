@@ -87,6 +87,9 @@ Your team gets the plugin on their next `git pull`. No global install required o
 | `upstream validate` | Check whether the current branch diff is aligned with its PRD/ADR |
 | `upstream validate --format json` | Machine-readable alignment result (`{ verdict, engine, findings }`) |
 | `upstream validate --base <branch>` | Override the base branch used for diff |
+| `upstream validate --report [path]` | Write a JSON report artifact to disk (default: `upstream-report.json`) |
+| `upstream report summary` | Print a Markdown summary of the last report artifact to stdout |
+| `upstream report summary --input <path>` | Read report from a custom path |
 | `upstream stats` | Show PRD/ADR coverage summary across all feature branches |
 | `upstream stats --format json` | Machine-readable stats output |
 | `upstream stats --trend` | Compare current coverage against the latest snapshot |
@@ -327,7 +330,7 @@ upstream report summary >> $GITHUB_STEP_SUMMARY  # pipe to GitHub Actions job su
 
 ```yaml
 - name: Run alignment check
-  run: upstream validate --report upstream-report.json --output json
+  run: upstream validate --report upstream-report.json --format json
   env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

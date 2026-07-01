@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-01
+
 ### Added
 - `upstream stats --adoption` — team adoption analytics: per-author PRD/ADR coverage, skip log with author attribution, and an overall adoption score; scoped to a configurable lookback window via `--since <date>` (default: 90 days); `--no-authors` suppresses the per-author table; `--format json` emits the raw `{ authors, skips, adoptionScore, since }` object for CI/dashboards; all data derived from local git history and `SKIPS.md` — no network calls
 - `upstream validate --report [path]` — writes a structured JSON artifact to disk after alignment check (default filename: `upstream-report.json`); shape includes `branch`, `verdict`, `engine`, `coverage`, `findings`, `snapshot`, and `trend` fields
